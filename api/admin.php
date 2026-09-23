@@ -196,6 +196,14 @@ switch ($do) {
             ];
         };
 
+        // Section membership, which is what the matrix is built from. A TA can
+        // be responsible for a section yet hold no students in it this lab,
+        // so membership and the per-lab distribution are reported separately.
+        $member = [];
+        foreach (all('SELECT ta_id, section_id FROM section_tas') as $m) {
+            $member[(int)$m['ta_id']][$m['section_id']] = true;
+        }
+
         $rows = [];
         foreach ($tas as $ta) {
             $taId = (int)$ta['id'];
@@ -216,10 +224,11 @@ switch ($do) {
             }
 
             $rows[] = [
-                'ta'       => ['id' => $taId, 'name' => $ta['name'], 'username' => $ta['username']],
-                'sections' => $secOut,
-                'total'    => $total,
-                'done'     => $done,
+                'ta'        => ['id' => $taId, 'name' => $ta['name'], 'username' => $ta['username']],
+                'sections'  => $secOut,
+                'memberOf'  => array_keys($member[$taId] ?? []),
+                'total'     => $total,
+                'done'      => $done,
             ];
         }
 
@@ -233,7 +242,7 @@ switch ($do) {
             if ($none) $orphans[] = ['section' => $sec, 'students' => array_map(fn($s) => $pack($s, 0), $none)];
         }
 
-        ok(['rows' => $rows, 'unassigned' => $orphans]);
+        ok(['rows' => $rows, 'unassigned' => $orphans, 'sections' => $sections]);
     }
 
     /* Administrative trail — lab state, rubrics, reassignment, accounts. */

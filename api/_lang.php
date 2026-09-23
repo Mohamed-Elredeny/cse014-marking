@@ -216,6 +216,27 @@ const MESSAGES = [
                            'en' => 'Assistant “{v}” does not exist — import assistants first.'],
 'imp.errStopped'       => ['ar' => 'توقّف الاستيراد عند: {v}',     'en' => 'The import stopped at: {v}'],
 
+/* --------------------------------------------- enrolment export import */
+'imp.kindEnrol'        => ['ar' => 'كشف التسجيل',                 'en' => 'Enrolment export'],
+'imp.enrolHint'        => ['ar' => 'ارفع كشف التسجيل كما يصدر من الجامعة (احفظه من Excel بصيغة CSV). يُقرأ سطر العناوين تلقائيًا، وتُؤخذ صفوف CSE014 المعملية فقط — باقي المقررات تُتجاهل. الشعب تُنشأ أو تُحدَّث من الملف نفسه (اليوم والوقت والقاعة).',
+                            'en' => 'Upload the university enrolment export (save it from Excel as CSV). The header row is detected automatically and only CSE014 lab rows are taken; every other course is ignored. Sections are created or updated from the file itself (day, time, room).'],
+'imp.enrolNoHeader'    => ['ar' => 'تعذّر العثور على سطر العناوين — لا بد أن يحتوي الملف على أعمدة ID و Name و Full Course Code.',
+                            'en' => 'Could not find the header row — the file must contain ID, Name, and Full Course Code columns.'],
+'imp.enrolNoRows'      => ['ar' => 'لا توجد صفوف CSE014 معملية في هذا الملف.',
+                            'en' => 'No CSE014 lab rows were found in this file.'],
+'imp.enrolSummary'     => ['ar' => 'قُرئ {scanned} سطرًا · {found} صف CSE014 معملي · {sections} شعبة',
+                            'en' => '{scanned} rows read · {found} CSE014 lab rows · {sections} sections'],
+'imp.enrolAdded'       => ['ar' => 'طلاب جدد: {n}',                'en' => 'New students: {n}'],
+'imp.enrolMoved'       => ['ar' => 'غيّروا الشعبة: {n}',           'en' => 'Changed section: {n}'],
+'imp.enrolSame'        => ['ar' => 'بدون تغيير: {n}',              'en' => 'Unchanged: {n}'],
+'imp.enrolGone'        => ['ar' => 'مسجّلون عندنا وغير موجودين في الملف: {n}',
+                            'en' => 'In the system but absent from the file: {n}'],
+'imp.enrolGoneNote'    => ['ar' => 'لم يُحذف أحد. راجع القائمة — قد يكونون انسحبوا من المقرر. الحذف يتم يدويًا لأنه يمحو درجاتهم المسجلة معهم.',
+                            'en' => 'Nobody was removed. Review the list — they may have withdrawn. Removal is manual because it deletes their recorded grades with them.'],
+'imp.enrolSecNew'      => ['ar' => 'شعب جديدة: {n}',               'en' => 'New sections: {n}'],
+'imp.enrolSecNoTa'     => ['ar' => 'شعب بدون معيدين — طلابها لن يُسند إليهم أحد حتى تعيّن لها معيدين من صفحة المستخدمين: {list}',
+                            'en' => 'Sections with no assistants — their students stay unassigned until you set assistants on the Users page: {list}'],
+
 /* ------------------------------------------------------------------ device */
 'dev.unknown'          => ['ar' => 'جهاز',                        'en' => 'Device'],
 'dev.android'          => ['ar' => 'أندرويد',                     'en' => 'Android'],

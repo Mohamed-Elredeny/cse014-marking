@@ -18,7 +18,11 @@ const KINDS = [
     'tas'      => ['imp.kindTas',      'username,name,email,password', ['username','name','email','password']],
     'sections' => ['imp.kindSections', 'id,name,day,time,room,tas',    ['id','name','day','time','room','tas']],
     'students' => ['imp.kindStudents', 'id,name,email,section_id',     ['id','name','email','section_id']],
+    'enrol'    => ['imp.kindEnrol',    'ID,Name,Full Course Code,Section,…', []],
 ];
+
+/** The course this installation marks. Rows for anything else are ignored. */
+const COURSE_CODE = 'CSE014';
 
 /* This form replaces student records, so a POST must carry the session's
    token. Without it a page the Main TA merely visits could drive an import. */
@@ -72,7 +76,207 @@ function row_error(int $line, string $key, array $vars = []): string
     return L('imp.row', ['n' => $line]) . ': ' . L($key, $vars);
 }
 
-if ($raw !== '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+/* ==========================================================================
+   Enrolment export
+   --------------------------------------------------------------------------
+   The university export lists every course on campus, with a title line above
+   the real header and one row per student per component. What matters here is
+   narrow: CSE014 rows whose Unit Taken is zero, which is the lab component and
+   therefore the section a student is actually marked in. The lecture rows
+   carry the same students against a different section and are skipped.
+   ========================================================================== */
+
+/** Finds the header row and maps the columns this import needs. */
+function enrol_header(array $rows): ?array
+{
+    foreach ($rows as $i => $cells) {
+        $map = [];
+        foreach ($cells as $j => $name) {
+            $key = strtolower(trim((string)$name));
+            // 'Descr' appears twice; the first occurrence wins.
+            if ($key !== '' && !isset($map[$key])) $map[$key] = $j;
+        }
+        if (isset($map['id'], $map['name'], $map['full course code'])) {
+            return ['row' => $i, 'map' => $map];
+        }
+        if ($i > 20) break;              // the header is always near the top
+    }
+    return null;
+}
+
+/** 0.5625 -> "13:30". Excel stores a time of day as a fraction. */
+function enrol_time($v): string
+{
+    $v = trim((string)$v);
+    if ($v === '') return '';
+    if (preg_match('/^\d{1,2}:\d{2}/', $v)) return substr($v, 0, 5);
+    if (!is_numeric($v)) return '';
+    $m = (int)round((float)$v * 24 * 60);
+    return sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
+}
+
+/** Reads the CSE014 lab rows out of a parsed enrolment export. */
+function enrol_extract(array $rows, array $head): array
+{
+    $map = $head['map'];
+    $get = function (array $r, string $col) use ($map) {
+        $j = $map[$col] ?? null;
+        return $j === null ? '' : trim((string)($r[$j] ?? ''));
+    };
+
+    $days = ['mon' => 'Monday', 'tues' => 'Tuesday', 'wed' => 'Wednesday',
+             'thurs' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];
+
+    $students = [];
+    $sections = [];
+    $scanned = 0;
+
+    foreach (array_slice($rows, $head['row'] + 1) as $r) {
+        if (!array_filter($r, fn($c) => trim((string)$c) !== '')) continue;
+        $scanned++;
+
+        if (strtoupper($get($r, 'full course code')) !== COURSE_CODE) continue;
+
+        // Unit Taken 0 marks the lab component; anything else is the lecture.
+        $units = $get($r, 'unit taken');
+        if ($units !== '' && abs((float)$units) > 0.0001) continue;
+
+        $id  = $get($r, 'id');
+        $sec = $get($r, 'section');
+        if ($id === '' || $sec === '') continue;
+
+        $day = '';
+        foreach ($days as $col => $label) {
+            if (strtoupper($get($r, $col)) === 'Y') { $day = $label; break; }
+        }
+
+        $students[$id] = [
+            'id'         => $id,
+            'name'       => $get($r, 'name'),
+            'email'      => $get($r, 'email'),
+            'section_id' => $sec,
+        ];
+
+        if (!isset($sections[$sec])) {
+            $sections[$sec] = [
+                'id'   => $sec,
+                'day'  => $day,
+                'time' => enrol_time($get($r, 'mtg start')),
+                'room' => $get($r, 'facil id'),
+            ];
+        }
+    }
+
+    return ['students' => array_values($students), 'sections' => $sections, 'scanned' => $scanned];
+}
+
+/* ---------------------------------------------------- enrolment export ---- */
+if ($raw !== '' && $kind === 'enrol' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $lines = preg_split('/\r\n|\r|\n/', preg_replace('/^\xEF\xBB\xBF/', '', $raw));
+    $grid  = array_map('str_getcsv', array_filter($lines, fn($l) => trim($l) !== ''));
+
+    $head = enrol_header($grid);
+
+    // `errors` blocks the import; `notes` and `gone` are reported for review.
+    $report = ['labelKey' => 'imp.kindEnrol', 'rows' => 0, 'errors' => [],
+               'errorCount' => 0, 'done' => 0, 'made' => [], 'notes' => [], 'gone' => []];
+
+    if (!$head) {
+        $report['errors'][] = L('imp.enrolNoHeader');
+    } else {
+        $found = enrol_extract($grid, $head);
+
+        if (!$found['students']) {
+            $report['errors'][] = L('imp.enrolNoRows');
+        } else {
+            $report['rows'] = count($found['students']);
+            $report['notes'][] = L('imp.enrolSummary', [
+                'scanned'  => $found['scanned'],
+                'found'    => count($found['students']),
+                'sections' => count($found['sections']),
+            ]);
+
+            // Compare against what is already recorded before changing anything.
+            $existing = [];
+            foreach (all('SELECT id, section_id FROM students') as $s) $existing[$s['id']] = $s['section_id'];
+            $haveSections = array_column(all('SELECT id FROM sections'), 'id');
+
+            $added = $moved = $same = 0;
+            foreach ($found['students'] as $s) {
+                if (!isset($existing[$s['id']]))                 $added++;
+                elseif ($existing[$s['id']] !== $s['section_id']) $moved++;
+                else                                              $same++;
+            }
+            $gone = array_diff(array_keys($existing), array_column($found['students'], 'id'));
+            $newSections = array_diff(array_keys($found['sections']), $haveSections);
+
+            $report['notes'][] = L('imp.enrolAdded',  ['n' => $added]);
+            $report['notes'][] = L('imp.enrolMoved',  ['n' => $moved]);
+            $report['notes'][] = L('imp.enrolSame',   ['n' => $same]);
+            if ($newSections) $report['notes'][] = L('imp.enrolSecNew', ['n' => count($newSections)]);
+            if ($gone) {
+                $report['notes'][] = L('imp.enrolGone', ['n' => count($gone)]);
+                $report['notes'][] = L('imp.enrolGoneNote');
+                foreach (array_slice($gone, 0, 30) as $g) {
+                    $nm = one('SELECT name FROM students WHERE id = ?', [$g])['name'] ?? '';
+                    $report['gone'][] = $g . '  ' . $nm;
+                }
+            }
+
+            if ($commit) {
+                db()->beginTransaction();
+                try {
+                    // Sections first: a student cannot reference one that is absent.
+                    $si = 0;
+                    foreach ($found['sections'] as $sec) {
+                        q('INSERT INTO sections (id, name, day, time, room, sort) VALUES (?,?,?,?,?,?)
+                           ON DUPLICATE KEY UPDATE day=VALUES(day), time=VALUES(time), room=VALUES(room)',
+                          [$sec['id'], 'Section ' . $sec['id'], $sec['day'], $sec['time'],
+                           $sec['room'] ?: '—', $si++]);
+                    }
+
+                    // File order is the student order the distribution follows.
+                    $order = [];
+                    foreach ($found['students'] as $s) {
+                        $sid = $s['section_id'];
+                        $order[$sid] = ($order[$sid] ?? -1) + 1;
+                        q('INSERT INTO students (id, name, name_norm, email, section_id, sort)
+                           VALUES (?,?,?,?,?,?)
+                           ON DUPLICATE KEY UPDATE name=VALUES(name), name_norm=VALUES(name_norm),
+                             email=VALUES(email), section_id=VALUES(section_id), sort=VALUES(sort)',
+                          [$s['id'], $s['name'], ar_norm($s['name']), $s['email'], $sid, $order[$sid]]);
+                        $report['done']++;
+                    }
+                    db()->commit();
+
+                    audit('import.run', 'enrolment', '', '',
+                          $report['done'] . " students · +$added moved:$moved · "
+                          . count($found['sections']) . ' sections');
+                } catch (Throwable $e) {
+                    db()->rollBack();
+                    error_log('[marking] enrolment import: ' . $e->getMessage());
+                    $report['errors'][] = L('imp.errStopped', ['v' => $e->getMessage()]);
+                    $report['done'] = 0;
+                }
+
+                // Sections nobody covers leave their students unassigned.
+                $orphan = array_column(all(
+                    'SELECT s.id FROM sections s
+                     LEFT JOIN section_tas t ON t.section_id = s.id
+                     WHERE t.section_id IS NULL'), 'id');
+                if ($orphan) {
+                    $report['notes'][] = L('imp.enrolSecNoTa', ['list' => implode(', ', $orphan)]);
+                }
+            }
+        }
+    }
+
+    $report['errorCount'] = count($report['errors']);
+}
+
+/* ------------------------------------------------------- the simple kinds -- */
+if ($raw !== '' && $kind !== 'enrol' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     [$labelKey, $sample, $cols] = KINDS[$kind];
     $rows = parse_csv($raw, $cols);
 
@@ -319,6 +523,22 @@ $LANG = lang();
       </div></div>
     <?php endif; ?>
 
+    <?php if (!empty($report['notes'])): ?>
+      <div class="card stack-sm">
+        <?php foreach ($report['notes'] as $n): ?>
+          <p class="small"><?= $h($n) ?></p>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+
+    <?php if (!empty($report['gone'])): ?>
+      <div class="card stack-sm">
+        <h2 style="font-size:1rem"><?= $h(L('imp.enrolGone', ['n' => count($report['gone'])])) ?></h2>
+        <div class="made"><?= $h(implode("
+", $report['gone'])) ?></div>
+      </div>
+    <?php endif; ?>
+
     <?php if ($report['made']): ?>
       <div class="card stack-sm">
         <h2 style="font-size:1rem"><?= $h(L('imp.newPasswords')) ?></h2>
@@ -341,10 +561,10 @@ $LANG = lang();
         <?php endforeach; ?>
       </div>
       <p class="tiny faint" style="margin-top:9px">
-        <?= $h(L('imp.columns')) ?> <code><?= $h(KINDS[$kind][1]) ?></code>
+        <?php if ($kind === 'enrol'): ?><?= $h(L('imp.enrolHint')) ?><?php else: ?><?= $h(L('imp.columns')) ?> <code><?= $h(KINDS[$kind][1]) ?></code><?php endif; ?>
         <?php if ($kind === 'sections'): ?><br><?= $h(L('imp.sectionsHint')) ?><?php endif; ?>
         <?php if ($kind === 'tas'): ?><br><?= $h(L('imp.tasHint')) ?><?php endif; ?>
-        <br><?= $h(L('imp.headerNote')) ?>
+        <?php if ($kind !== 'enrol'): ?><br><?= $h(L('imp.headerNote')) ?><?php endif; ?>
       </p>
     </div>
 

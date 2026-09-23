@@ -168,6 +168,22 @@
 
     <section>
       <div class="section-head">
+        <h2 data-i18n="adm.gridTitle"></h2>
+        <span class="tiny faint" id="gridHint">—</span>
+        <span class="spacer"></span>
+        <a class="btn btn--ghost" href="users.html" data-i18n="adm.gridEdit"></a>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr id="gridHead"></tr></thead>
+          <tbody id="gridBody"></tbody>
+        </table>
+      </div>
+      <p class="tiny faint" style="margin-top:7px" data-i18n="adm.gridLegend"></p>
+    </section>
+
+    <section>
+      <div class="section-head">
         <h2 data-i18n="adm.distTitle"></h2>
         <span class="tiny faint" id="distHint">—</span>
         <span class="spacer"></span>
@@ -557,6 +573,8 @@ async function loadDistribution() {
         </div>`).join('')}
     </div>`).join('');
 
+  renderGrid(d);
+
   const rows = (d.rows || []).map((r, i) => `
     <div class="distrow" data-i="${i}">
       <div class="distrow__head" role="button" tabindex="0" aria-expanded="false">
@@ -589,6 +607,49 @@ async function loadDistribution() {
     </div>` : '';
 
   $('#distList').innerHTML = (rows + orphans) || `<p class="empty">${esc(t('adm.taNoSections'))}</p>`;
+}
+
+/**
+ * Assistants down the side, sections across the top.
+ *
+ * A cell shows how many students that assistant holds in that section for the
+ * selected lab. Membership and workload are different things: an assistant can
+ * cover a section and still draw no students in a given week, because the
+ * distribution rotates — that case shows a tick rather than a zero.
+ */
+function renderGrid(d) {
+  const sections = d.sections || [];
+  $('#gridHint').textContent = t('adm.gridHint', { lab: labName(current) });
+
+  $('#gridHead').innerHTML =
+    `<th class="sticky">${esc(t('adm.gridTa'))}</th>` +
+    sections.map(s => `<th style="text-align:center">${esc(s.id)}<br>
+      <span class="tiny faint" style="font-weight:400">${esc(s.day.slice(0, 3))} ${esc(s.time)}</span></th>`).join('') +
+    `<th style="text-align:center">${esc(t('adm.gridTotal'))}</th>`;
+
+  $('#gridBody').innerHTML = (d.rows || []).map(r => {
+    const held = {};
+    r.sections.forEach(s => held[s.section.id] = s.students.length);
+    const member = new Set(r.memberOf || []);
+
+    const cells = sections.map(s => {
+      const n = held[s.id] || 0;
+      if (n) {
+        const tone = pctTone(100);
+        return `<td class="cellpct" style="background:${tone.bg};color:${tone.fg}">${n}</td>`;
+      }
+      // Covers the section, but the rotation gave them nobody this lab.
+      if (member.has(s.id)) return `<td class="cellpct" style="color:var(--ok)">&check;</td>`;
+      return '<td class="cellpct faint">—</td>';
+    }).join('');
+
+    return `<tr>
+      <td class="sticky"><strong>${esc(r.ta.name)}</strong>
+        <span class="tiny faint ltr" style="display:block">${esc(r.ta.username)}</span></td>
+      ${cells}
+      <td class="cellpct"><strong>${r.total || '—'}</strong></td>
+    </tr>`;
+  }).join('') || `<tr><td class="faint">${esc(t('adm.taNoSections'))}</td></tr>`;
 }
 
 /* One delegated handler, so re-rendering never leaves listeners behind. */
