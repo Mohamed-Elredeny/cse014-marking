@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-title-key="sec.pageTitle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>CSE014</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/i18n.js"></script>
+<style>
+  .shell{padding-block:15px 108px}
+  .req{padding:11px 0}
+  .req__note{
+    background:var(--surface-2);border-radius:var(--radius-xs);
+    padding:7px 11px;font-size:.8rem;line-height:1.6;margin-top:6px;color:var(--ink-2);
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__in">
+    <div class="row__main">
+      <div class="topbar__title" id="hTitle">—</div>
+      <div class="topbar__sub" id="hSub">—</div>
+    </div>
+    <span id="hRight"></span>
+    <button data-lang-switch></button>
+  </div>
+</header>
+
+<main class="shell stack">
+
+  <div class="steps" id="steps"></div>
+
+  <div id="closedBanner" class="banner banner--warn" hidden></div>
+
+  <!-- Entries the server refused after the connection returned -->
+  <section id="deadCard" hidden>
+    <div class="card stack-sm" style="border-color:var(--bad)">
+      <div class="rowline" style="flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:1rem;color:var(--bad)" data-i18n="dead.title"></h2>
+        <span class="pill pill--bad" id="deadCount">—</span>
+      </div>
+      <p class="tiny faint" data-i18n="dead.body"></p>
+      <div class="list" id="deadList"></div>
+      <div class="rowline" style="flex-wrap:wrap">
+        <button class="btn" id="deadRetry" type="button" data-i18n="act.retry"></button>
+        <button class="btn btn--ghost" id="deadClear" type="button" data-i18n="act.dismiss"></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack-sm">
+    <div class="section-head" id="sectionHead"><h2 data-i18n="sec.heading"></h2></div>
+    <div class="stack-sm" id="sectionList"></div>
+  </section>
+
+  <div class="card stack-sm" id="reqCard" hidden>
+    <div class="card__head" style="margin:0">
+      <h2 style="font-size:1rem" data-i18n="req.mine"></h2>
+    </div>
+    <div class="list" id="reqList"></div>
+  </div>
+
+  <details class="card pick">
+    <summary data-i18n="sec.amendTitle"></summary>
+    <p class="tiny faint" style="margin-top:9px" data-i18n="sec.amendNote"></p>
+    <div class="chips" id="closedChips" style="margin-top:11px"></div>
+  </details>
+
+</main>
+
+<div class="actionbar">
+  <div class="actionbar__in">
+    <button class="btn" id="prev" type="button"></button>
+    <button class="btn btn--primary btn--lg btn--block" id="next" type="button" disabled></button>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/flow.js"></script>
+<script>
+const me = requireUser(['ta', 'main']);
+const isMain = !!me && me.role === 'main';
+
+let LABS = [], lab = null, work = [], picked = null;
+
+const REQ_STATE = {
+  pending:  ['req.pending',  'pill--warn'],
+  approved: ['req.approved', 'pill--ok'],
+  rejected: ['req.rejected', 'pill--bad']
+};
+
+if (me) init();
+
+async function init() {
+  Flow.stepper(1, $('#steps'));
+  $('#sectionList').innerHTML = skeleton(3);
+
+  $('#prev').textContent = isMain ? t('sec.toDashboard') : t('act.signOut');
+  $('#prev').addEventListener('click', () => {
+    if (isMain) location.href = 'admin.html'; else logout();
+  });
+
+  $('#next').textContent = t('sec.choose');
+  $('#next').addEventListener('click', () => {
+    if (picked) Flow.go('students.html', { section: picked });
+  });
+
+  LABS = await Api.labs();
+  const open = LABS.filter(l => l.state === 'open');
+  lab = LABS.find(l => l.id === Flow.labId) || open[0] || null;
+  if (lab) Flow.setLab(lab.id);
+
+  $('#deadRetry').addEventListener('click', async () => {
+    const r = await Api.outbox.retryFailed();
+    toast(r.failed
+      ? t('dead.retryResult', { sent: r.sent, failed: r.failed })
+      : t('dead.retryOk', { sent: r.sent }));
+    renderDead();
+  });
+  $('#deadClear').addEventListener('click', () => {
+    if (!confirm(t('dead.confirmClear'))) return;
+    Api.outbox.clearFailed();
+    renderDead();
+  });
+  renderDead();
+
+  renderClosedChips();
+  renderHeader();
+
+  if (!lab) {
+    // Nothing is assignable yet, so the "your sections" heading would mislead.
+    $('#sectionHead').hidden = true;
+    $('#sectionList').innerHTML = `<div class="banner banner--bad">${esc(t('sec.noLab'))}</div>`;
+    return;
+  }
+
+  work = await Api.myWork(me.id, lab.id);
+  renderSections();
+  loadRequests();
+}
+
+/* Grades the server refused once the connection returned — the TA must see them. */
+function renderDead() {
+  const dead = Api.outbox.failed();
+  $('#deadCard').hidden = !dead.length;
+  if (!dead.length) return;
+
+  $('#deadCount').textContent = `${dead.length}`;
+  $('#deadList').innerHTML = dead.map(d => {
+    const p = d.payload || {};
+    return `
+      <div class="row" style="align-items:flex-start">
+        <div class="row__main">
+          <div class="row__name">
+            <span class="num ltr">${esc(p.studentId || '—')}</span> · ${esc(labName(p.labId || '—'))}
+          </div>
+          <div class="row__meta" style="white-space:normal;color:var(--bad)">${esc(d.error || '')}</div>
+        </div>
+        <span class="row__score">${p.grade !== undefined ? p.grade : '—'}</span>
+      </div>`;
+  }).join('');
+}
+
+function renderHeader() {
+  $('#hTitle').textContent = lab
+    ? `${labName(lab.id)} · ${t('noun.section')}`
+    : t('sec.noLabTitle');
+  $('#hSub').textContent = `${t('app.courseCode')} · ${t('app.term')}`;
+  $('#hRight').innerHTML = lab
+    ? `<span class="pill ${lab.state === 'open' ? 'pill--ok' : 'pill--warn'}">${esc(t('lab.' + lab.state))}</span>`
+    : '';
+
+  const b = $('#closedBanner');
+  b.hidden = !lab || lab.state !== 'closed';
+  if (!b.hidden) b.textContent = t('sec.closedNote', { lab: labName(lab.id) });
+}
+
+function renderSections() {
+  if (!work.length) {
+    $('#sectionList').innerHTML = `<p class="empty">${esc(t('sec.none'))}</p>`;
+    return;
+  }
+
+  // A single section needs no choosing — go straight in.
+  if (work.length === 1) { Flow.go('students.html', { section: work[0].section.id }); return; }
+
+  const last = Prefs.get().section;
+  picked = work.some(w => w.section.id === last) ? last : null;
+
+  $('#sectionList').innerHTML = work.map(w => {
+    const pct = w.mineTotal ? Math.round(w.mineDone / w.mineTotal * 100) : 0;
+    return `
+      <button class="pickrow" type="button" data-sec="${esc(w.section.id)}"
+              aria-current="${w.section.id === picked}">
+        <div class="row__main">
+          <div class="pickrow__title">${esc(w.section.name)}</div>
+          <div class="row__meta">${esc(w.section.day)} ${esc(w.section.time)} · ${esc(w.section.room)}</div>
+          <div class="bar" style="margin-top:9px">
+            <div class="bar__fill${pct >= 100 ? ' bar__fill--ok' : ''}" style="width:${pct}%"></div>
+          </div>
+        </div>
+        <div class="pickrow__num">
+          <span class="v" style="color:${pct >= 100 ? 'var(--ok)' : 'var(--ink)'}">${w.mineDone}/${w.mineTotal}</span>
+          <span class="tiny faint">${esc(isMain ? t('sec.whole') : t('sec.mine'))}</span>
+        </div>
+      </button>`;
+  }).join('');
+
+  $$('#sectionList .pickrow').forEach(b => b.addEventListener('click', () => {
+    Prefs.set({ section: b.dataset.sec });
+    Flow.go('students.html', { section: b.dataset.sec });
+  }));
+
+  syncNext();
+}
+
+function syncNext() {
+  const w = work.find(x => x.section.id === picked);
+  $('#next').disabled = !w;
+  $('#next').textContent = w ? t('sec.continueTo', { name: w.section.name }) : t('sec.choose');
+}
+
+function renderClosedChips() {
+  const closed = LABS.filter(l => l.state === 'closed');
+  $('#closedChips').innerHTML = closed.length
+    ? closed.map(l => `<button class="chip chip--closed" type="button" data-lab="${l.id}">${esc(labName(l.id))}</button>`).join('')
+    : `<span class="tiny faint">${esc(t('sec.noClosed'))}</span>`;
+
+  $$('#closedChips .chip').forEach(c => c.addEventListener('click', () => {
+    location.href = `sections.html?lab=${c.dataset.lab}`;
+  }));
+}
+
+async function loadRequests() {
+  if (isMain) return;
+  const list = await Api.myRequests(me.id, 6);
+  if (!list.length) { $('#reqCard').hidden = true; return; }
+
+  $('#reqCard').hidden = false;
+  $('#reqList').innerHTML = list.map(r => {
+    const [key, cls] = REQ_STATE[r.state];
+    const max = (LABS.find(l => l.id === r.labId) || {}).max || 10;
+    return `
+      <div class="req">
+        <div class="rowline" style="flex-wrap:wrap;gap:6px">
+          <span style="font-weight:600;font-size:.92rem">${esc(r.student ? r.student.name : r.studentId)}</span>
+          <span class="pill ${cls}">${esc(t(key))}</span>
+          <span class="spacer"></span>
+          <span class="row__meta num">${esc(labName(r.labId))} · ${r.prevGrade === null ? '—' : r.prevGrade} → ${r.grade}/${max}</span>
+        </div>
+        ${r.state === 'rejected' && r.decisionNote
+          ? `<div class="req__note">${esc(t('req.rejectReason', { note: r.decisionNote }))}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+</script>
+
+</body>
+</html>

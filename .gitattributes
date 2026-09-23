@@ -1,0 +1,5 @@
+# The server runs Linux; keep text files LF there regardless of the editor
+# used on Windows. Without this, shell scripts and .htaccess can arrive with
+# CRLF and Apache may reject a directive line.
+* text=auto eol=lf
+*.png binary

@@ -1,0 +1,973 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-title-key="adm.pageTitle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>CSE014</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/i18n.js"></script>
+<style>
+  /* Slightly narrower than the full wide shell, so lines stay readable. */
+  .shell--wide{max-width:900px}
+  .topbar--wide .topbar__in{max-width:900px}
+
+  /* Tabs live inside the header, so only one element is sticky. */
+  .topbar__tabs{max-width:900px;margin:0 auto;padding:0 16px 10px}
+  .topbar__tabs .tabs{position:static;top:auto}
+
+  /* ---------- lab card ---------- */
+  .labcard{border-inline-start:4px solid var(--line-strong)}
+  .labcard--open{border-inline-start-color:var(--ok)}
+  .labcard--closed{border-inline-start-color:var(--warn)}
+  .labcard__title{font-family:var(--mono);font-weight:700;font-size:1.3rem;line-height:1.2}
+
+  /* ---------- who marks whom ---------- */
+  .distrow{padding:13px 0}
+  .distrow__head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;cursor:pointer}
+  .distrow__name{font-weight:700;font-size:.95rem}
+  .distsec{margin-top:11px}
+  .distsec__title{
+    font-size:.76rem;font-weight:700;color:var(--ink-3);
+    margin-bottom:6px;letter-spacing:.02em;
+  }
+  .diststu{
+    display:flex;align-items:center;gap:9px;
+    padding:6px 10px;border-radius:var(--radius-xs);
+    background:var(--surface-2);margin-bottom:5px;font-size:.85rem;
+  }
+  .diststu--done{background:var(--ok-soft)}
+  .diststu__id{font-family:var(--mono);font-size:.76rem;color:var(--ink-3);flex:0 0 auto}
+  .diststu__name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---------- teaching assistants ---------- */
+  .tarow{padding:13px 0}
+  .tarow__name{font-weight:700;font-size:.95rem}
+  .tasecs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .tasec{
+    font-family:var(--mono);font-size:.73rem;font-weight:700;
+    border-radius:999px;padding:3px 10px;white-space:nowrap;
+  }
+
+  /* ---------- change requests ---------- */
+  .reqrow{padding:13px 0}
+  .reqrow__who{font-weight:700;font-size:.94rem;line-height:1.45}
+  .reqreason{
+    background:var(--surface-2);border-radius:var(--radius-xs);
+    padding:8px 11px;font-size:.84rem;line-height:1.6;margin-top:7px;color:var(--ink-2);
+  }
+  .reqacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .reqacts .btn{min-height:38px;font-size:.86rem;padding:0 15px}
+  .delta{font-family:var(--mono);font-weight:700}
+
+  /* ---------- amendment log ---------- */
+  .ovr{padding:13px 0}
+  .ovr__who{font-weight:700;font-size:.92rem}
+  .ovr .reason{
+    background:var(--warn-soft);color:var(--warn);border-radius:var(--radius-xs);
+    padding:7px 11px;font-size:.82rem;line-height:1.6;margin-top:7px;
+  }
+
+  /* ---------- export ---------- */
+  .csvbox{
+    width:100%;min-height:150px;
+    font-family:var(--mono);font-size:.72rem;line-height:1.55;
+    direction:ltr;text-align:left;white-space:pre;overflow:auto;
+  }
+
+  /* ---------- rubric editor ---------- */
+  .rubrow{display:grid;grid-template-columns:1fr 78px 44px;gap:8px;align-items:center}
+  .rubrow .input{min-height:42px}
+  .rubpts{font-family:var(--mono);text-align:center}
+  .rubdel{
+    min-height:42px;padding:0;font-size:1.15rem;line-height:1;
+    border:1px solid transparent;background:transparent;color:var(--ink-3);cursor:pointer;
+    font-family:inherit;border-radius:var(--radius-sm);
+    transition:background .14s ease,color .14s ease;
+  }
+  .rubdel:hover{background:var(--bad-soft);color:var(--bad)}
+  .rubtotal{
+    font-family:var(--mono);font-weight:700;font-size:1rem;
+    background:var(--brand-soft);color:var(--brand);
+    border-radius:999px;padding:5px 13px;white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar topbar--wide">
+  <div class="topbar__in">
+    <div class="row__main">
+      <div class="topbar__title" data-i18n="adm.pageTitle"></div>
+      <div class="topbar__sub" id="meName">—</div>
+    </div>
+    <a class="btn btn--ghost" href="users.html" data-i18n="adm.users"></a>
+    <a class="btn btn--ghost" href="tools/import.php" data-i18n="adm.import"></a>
+    <button class="btn btn--ghost" id="out" type="button" data-i18n="act.signOut"></button>
+    <button data-lang-switch></button>
+  </div>
+  <div class="topbar__tabs">
+    <div class="tabs" id="tabs">
+      <button class="tab" type="button" data-tab="watch" aria-pressed="true">
+        <span data-i18n="adm.tabWatch"></span><span class="tabbadge" id="tabBadge" hidden></span>
+      </button>
+      <button class="tab" type="button" data-tab="term" aria-pressed="false" data-i18n="adm.tabTerm"></button>
+      <button class="tab" type="button" data-tab="log"  aria-pressed="false" data-i18n="adm.tabLog"></button>
+    </div>
+  </div>
+</header>
+
+<main class="shell shell--wide stack" style="padding-bottom:44px">
+
+  <!-- ============ selected lab ============ -->
+  <div class="card labcard stack" id="labCard">
+    <div class="rowline" style="gap:11px">
+      <div class="row__main">
+        <div class="labcard__title" id="labTitle">—</div>
+        <div class="tiny faint" id="labSub">—</div>
+      </div>
+      <span class="pill" id="labPill">—</span>
+    </div>
+
+    <div class="chips" id="labs"></div>
+
+    <div class="rowline" style="flex-wrap:wrap">
+      <button class="btn" id="labToggle" type="button">—</button>
+      <button class="btn btn--ghost" id="labReset" type="button" hidden data-i18n="adm.backToSched"></button>
+      <span class="spacer"></span>
+      <button class="btn btn--ghost" id="editGrade" type="button" data-i18n="adm.editGrade"></button>
+    </div>
+  </div>
+
+  <!-- ============ tab: monitor ============ -->
+  <div class="stack" data-panel="watch">
+
+    <section id="reqSection" hidden>
+      <div class="section-head">
+        <h2 data-i18n="adm.reqTitle"></h2>
+        <span class="pill pill--warn" id="reqCount">—</span>
+        <span class="spacer"></span>
+        <button class="btn btn--ghost" id="notifyBtn" type="button" hidden data-i18n="adm.enableNotif"></button>
+      </div>
+      <div class="card"><div class="list" id="reqList"></div></div>
+    </section>
+
+    <div class="stats" id="stats"></div>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.taSection"></h2>
+        <span class="tiny faint" data-i18n="adm.taHint"></span>
+      </div>
+      <div class="card"><div class="list" id="taRows"></div></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.distTitle"></h2>
+        <span class="tiny faint" id="distHint">—</span>
+        <span class="spacer"></span>
+        <button class="btn btn--ghost" id="distCopy" type="button" data-i18n="adm.distCopy"></button>
+      </div>
+      <div class="card"><div class="list" id="distList"></div></div>
+    </section>
+
+    <details class="box">
+      <summary>
+        <span data-i18n="adm.reassign"></span>
+        <span class="tiny faint" data-i18n="adm.reassignHint"></span>
+      </summary>
+      <div class="body stack">
+        <div class="fields fields--3">
+          <div>
+            <label class="label" for="rsSec" data-i18n="noun.section"></label>
+            <select class="select" id="rsSec"></select>
+          </div>
+          <div>
+            <label class="label" for="rsFrom" data-i18n="adm.fromTa"></label>
+            <select class="select" id="rsFrom"></select>
+          </div>
+          <div>
+            <label class="label" for="rsTo" data-i18n="adm.toTa"></label>
+            <select class="select" id="rsTo"></select>
+          </div>
+        </div>
+        <label class="switchrow" for="rsOnly">
+          <input type="checkbox" id="rsOnly" checked>
+          <span data-i18n="adm.onlyUnmarked"></span>
+        </label>
+        <div class="rowline" style="flex-wrap:wrap">
+          <button class="btn btn--primary" id="rsGo" type="button" data-i18n="adm.doReassign"></button>
+          <button class="btn btn--ghost" id="rsClear" type="button" data-i18n="adm.clearReassign"></button>
+        </div>
+      </div>
+    </details>
+
+  </div>
+
+  <!-- ============ tab: term ============ -->
+  <div class="stack" data-panel="term" hidden>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.matrixTitle"></h2>
+        <span class="tiny faint" data-i18n="adm.matrixHint"></span>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr id="matrixHead"></tr></thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.exportTitle"></h2>
+        <span class="tiny faint" data-i18n="adm.exportHint"></span>
+      </div>
+      <div class="card stack">
+        <div class="rowline" style="flex-wrap:wrap">
+          <button class="btn" id="expLab" type="button" data-i18n="adm.exportLab"></button>
+          <button class="btn btn--primary" id="expAll" type="button" data-i18n="adm.exportAll"></button>
+        </div>
+        <div id="expBox" hidden class="stack-sm">
+          <p class="tiny faint" id="expNote">—</p>
+          <textarea class="textarea csvbox" id="expText" readonly></textarea>
+          <div class="rowline">
+            <button class="btn btn--ghost" id="expCopy" type="button" data-i18n="adm.copyAll"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <details class="box">
+      <summary>
+        <span data-i18n="adm.schedTitle"></span>
+        <span class="tiny faint" data-i18n="adm.schedHint"></span>
+      </summary>
+      <div class="body stack">
+        <div class="fields fields--3">
+          <div>
+            <label class="label" for="schStart" data-i18n="adm.schedStart"></label>
+            <input class="input" type="date" id="schStart">
+          </div>
+          <div>
+            <label class="label" for="schDays" data-i18n="adm.schedDays"></label>
+            <input class="input" type="number" id="schDays" min="1" max="30">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn btn--primary btn--block" id="schSave" type="button" data-i18n="adm.schedSave"></button>
+          </div>
+        </div>
+        <label class="switchrow" for="schAuto">
+          <input type="checkbox" id="schAuto">
+          <span data-i18n="adm.schedAuto"></span>
+        </label>
+        <div class="tablewrap">
+          <table>
+            <thead><tr>
+              <th class="sticky" data-i18n="adm.colLab"></th>
+              <th data-i18n="adm.colFrom"></th>
+              <th data-i18n="adm.colTo"></th>
+              <th data-i18n="adm.colState"></th>
+              <th data-i18n="adm.colSource"></th>
+              <th></th>
+            </tr></thead>
+            <tbody id="schRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <details class="box">
+      <summary>
+        <span data-i18n="adm.rubricTitle"></span>
+        <span class="tiny faint" id="rubricSum">—</span>
+      </summary>
+      <div class="body stack">
+        <div class="stack-sm" id="rubricList"></div>
+
+        <div class="rowline" style="flex-wrap:wrap">
+          <button class="btn btn--ghost" id="rubAdd" type="button" data-i18n="adm.rubricAdd"></button>
+          <span class="spacer"></span>
+          <span class="rubtotal" id="rubTotal">—</span>
+        </div>
+
+        <label class="switchrow" for="rubRecalc">
+          <input type="checkbox" id="rubRecalc" checked>
+          <span data-i18n="adm.rubricRecalc"></span>
+        </label>
+
+        <div class="rowline" style="flex-wrap:wrap">
+          <button class="btn btn--primary" id="rubSave" type="button" data-i18n="adm.rubricSave"></button>
+          <button class="btn btn--ghost" id="rubReset" type="button" data-i18n="act.revert"></button>
+        </div>
+
+        <p class="tiny faint" data-i18n="adm.rubricNote"></p>
+      </div>
+    </details>
+
+  </div>
+
+  <!-- ============ tab: logs ============ -->
+  <div class="stack" data-panel="log" hidden>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.ovrTitle"></h2>
+        <span class="tiny faint" data-i18n="adm.ovrHint"></span>
+      </div>
+      <div class="card"><div class="list" id="ovrList"></div></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.auditTitle"></h2>
+        <span class="tiny faint" data-i18n="adm.auditHint"></span>
+      </div>
+      <div class="card"><div class="list" id="auditList"></div></div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2 data-i18n="adm.feedTitle"></h2>
+        <span class="tiny faint" data-i18n="adm.feedHint"></span>
+      </div>
+      <div class="card"><div class="list" id="feed"></div></div>
+    </section>
+
+  </div>
+
+</main>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+const me = requireUser('main');
+
+let LABS = [], current = null, SECTIONS = [], TAS = [], lastReqCount = null, lastCsv = '';
+
+const TA_STATE = {
+  done:    ['adm.taDone',    'pill--ok'],
+  working: ['adm.taWorking', 'pill--warn'],
+  pending: ['adm.taPending', 'pill--bad']
+};
+
+if (me) init();
+
+async function init() {
+  $('#meName').textContent = me.name;
+  ['#taRows', '#distList', '#ovrList', '#auditList', '#feed'].forEach(s => $(s).innerHTML = skeleton(3));
+
+  $('#out').addEventListener('click', logout);
+  $('#labToggle').addEventListener('click', toggleLab);
+  $('#labReset').addEventListener('click', resetLab);
+  $('#editGrade').addEventListener('click', () => location.href = `sections.html?lab=${current}`);
+
+  $('#reqList').addEventListener('click', onReqClick);
+  $('#notifyBtn').addEventListener('click', askNotify);
+  $('#schSave').addEventListener('click', saveSchedule);
+  $('#schAuto').addEventListener('change', saveSchedule);
+  $('#schRows').addEventListener('click', onSchRow);
+  $('#rsGo').addEventListener('click', doReassign);
+  $('#rsClear').addEventListener('click', clearReassign);
+  $('#expLab').addEventListener('click', () => doExport('lab'));
+  $('#expAll').addEventListener('click', () => doExport('all'));
+  $('#expCopy').addEventListener('click', () => copyText(lastCsv));
+  $('#distCopy').addEventListener('click', copyDistribution);
+  $('#rubAdd').addEventListener('click', () => addRubRow({ id: '', text: '', points: 1 }));
+  $('#rubSave').addEventListener('click', saveRubric);
+  $('#rubReset').addEventListener('click', () => renderRubricEditor());
+  $('#rubricList').addEventListener('input', rubTotal);
+  $('#rubricList').addEventListener('click', e => {
+    const b = e.target.closest('.rubdel');
+    if (!b) return;
+    if ($$('#rubricList .rubrow').length <= 1) { toast(t('adm.rubricMinOne'), 'bad'); return; }
+    b.closest('.rubrow').remove();
+    rubTotal();
+  });
+
+  $$('#tabs .tab').forEach(b => b.addEventListener('click', () => {
+    $$('#tabs .tab').forEach(x => x.setAttribute('aria-pressed', x === b));
+    $$('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== b.dataset.tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
+
+  LABS = await Api.labs();
+  current = (LABS.find(l => l.state === 'open') || LABS[0]).id;
+
+  SECTIONS = await Api.sections();
+  TAS = (await Api.taOverview(current)).map(r => r.ta);
+  fillReassign();
+  initNotify();
+
+  renderChips();
+  loadLab();
+  loadMatrix();
+  loadSchedule();
+  loadRequests();
+  loadOverrides();
+  loadAudit();
+  loadFeed();
+
+  setInterval(loadRequests, 20000);
+}
+
+/* ================= lab card ================= */
+
+function renderChips() {
+  $('#labs').innerHTML = LABS.map(l => `
+    <button class="chip ${l.state === 'closed' ? 'chip--closed' : ''}" type="button"
+            data-lab="${l.id}" aria-pressed="${l.id === current}">${esc(labName(l.id))}</button>`).join('');
+
+  $$('#labs .chip').forEach(c => c.addEventListener('click', () => {
+    current = +c.dataset.lab;
+    $$('#labs .chip').forEach(x => x.setAttribute('aria-pressed', x === c));
+    loadLab();
+  }));
+}
+
+function renderLabCard() {
+  const lab = LABS.find(l => l.id === current);
+  const open = lab.state === 'open';
+
+  $('#labCard').className = 'card labcard stack ' + (open ? 'labcard--open' : 'labcard--closed');
+  $('#labTitle').textContent = labName(lab.id);
+
+  const w = lab.window ? `${fmtDate(lab.window.from)} – ${fmtDate(lab.window.to)}` : '';
+  $('#labSub').textContent = lab.overridden
+    ? t('adm.labManual', { state: t('lab.' + lab.state), w })
+    : t('adm.labScheduled', { w });
+
+  const pill = $('#labPill');
+  pill.className = 'pill ' + (open ? 'pill--ok' : 'pill--warn');
+  pill.textContent = t('lab.' + lab.state);
+
+  const btn = $('#labToggle');
+  btn.textContent = open ? t('adm.closeLab') : t('adm.openLab');
+  btn.className = 'btn' + (open ? '' : ' btn--primary');
+  $('#labReset').hidden = !lab.overridden;
+}
+
+async function toggleLab() {
+  const lab = LABS.find(l => l.id === current);
+  const next = lab.state === 'open' ? 'closed' : 'open';
+
+  $('#labToggle').disabled = true;
+  const res = await Api.setLabState(current, next);
+  $('#labToggle').disabled = false;
+
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+  await refreshLabs();
+  toast(next === 'open'
+    ? t('adm.labOpened', { lab: labName(current) })
+    : t('adm.labClosed', { lab: labName(current) }));
+  loadAudit();
+}
+
+async function resetLab() {
+  await Api.setLabState(current, null);
+  await refreshLabs();
+  toast(t('adm.reverted'));
+  loadAudit();
+}
+
+async function refreshLabs() {
+  LABS = await Api.labs();
+  renderChips();
+  renderLabCard();
+  loadMatrix();
+  loadSchedule();
+}
+
+/* ================= monitor tab ================= */
+
+async function loadLab() {
+  renderLabCard();
+  renderRubricEditor();
+
+  const st = await Api.labStats(current);
+  $('#stats').innerHTML = `
+    <div class="stat">
+      <div class="stat__v" style="color:${st.tasPending ? 'var(--bad)' : 'var(--ok)'}">${st.tasPending}</div>
+      <div class="stat__k">${esc(t('adm.statTaPending'))}</div>
+    </div>
+    <div class="stat">
+      <div class="stat__v" style="color:${st.notStarted ? 'var(--warn)' : 'var(--ok)'}">${st.notStarted}</div>
+      <div class="stat__k">${esc(t('adm.statSecPending'))}</div>
+    </div>
+    <div class="stat">
+      <div class="stat__v">${st.pct}<span class="faint" style="font-size:1rem">%</span></div>
+      <div class="stat__k">${esc(t('adm.statCompletion', {
+        lab: labName(current), done: st.marked, total: st.total
+      }))}</div>
+    </div>`;
+
+  loadTas();
+  loadDistribution();
+}
+
+async function loadTas() {
+  const rows = await Api.taOverview(current);
+  $('#taRows').innerHTML = rows.map(r => {
+    const [key, cls] = TA_STATE[r.status];
+    const secs = r.sections.map(x => {
+      const tone = pctTone(x.pct);
+      return `<span class="tasec" style="background:${tone.bg};color:${tone.fg}">${esc(x.section.name)} ${x.pct}%</span>`;
+    }).join('');
+    return `
+      <div class="tarow">
+        <div class="rowline" style="flex-wrap:wrap;gap:8px">
+          <span class="tarow__name">${esc(r.ta.name)}</span>
+          <span class="pill ${cls}">${esc(t(key))}</span>
+          <span class="spacer"></span>
+          <span class="row__meta">${esc(t('adm.taEntries', { n: r.mine, when: fmtWhen(r.lastAt) }))}</span>
+        </div>
+        <div class="tasecs">${secs || `<span class="tiny faint">${esc(t('adm.taNoSections'))}</span>`}</div>
+      </div>`;
+  }).join('');
+}
+
+/* ================= who marks whom ================= */
+
+let DIST = null;
+
+async function loadDistribution() {
+  $('#distHint').textContent = t('adm.distHint', { lab: labName(current) });
+
+  const d = await Api.distribution(current);
+  DIST = d;
+
+  const block = (entry) => entry.sections.map(s => `
+    <div class="distsec">
+      <div class="distsec__title">${esc(s.section.name)} · ${esc(s.section.day)} ${esc(s.section.time)}</div>
+      ${s.students.map(st => `
+        <div class="diststu${st.marked ? ' diststu--done' : ''}">
+          <span class="diststu__id ltr">${esc(st.id)}</span>
+          <span class="diststu__name">${esc(st.name)}</span>
+          ${st.markedBy ? `<span class="tiny faint">${esc(t('adm.distBy', { ta: st.markedBy }))}</span>` : ''}
+          ${st.marked
+            ? `<span class="pill pill--ok">${st.status === 'absent' ? esc(statusText('absent')) : st.grade}</span>`
+            : `<span class="pill">${esc(t('stu.notMarked'))}</span>`}
+        </div>`).join('')}
+    </div>`).join('');
+
+  const rows = (d.rows || []).map((r, i) => `
+    <div class="distrow" data-i="${i}">
+      <div class="distrow__head" role="button" tabindex="0" aria-expanded="false">
+        <span class="distrow__name">${esc(r.ta.name)}</span>
+        <span class="urow__user ltr">${esc(r.ta.username)}</span>
+        <span class="spacer"></span>
+        <span class="pill ${r.total && r.done === r.total ? 'pill--ok' : ''}">${
+          esc(t('adm.distCount', { done: r.done, total: r.total }))}</span>
+        <span class="btn btn--ghost" data-toggle>${esc(t('adm.distShow'))}</span>
+      </div>
+      <div data-body hidden>${
+        r.total ? block(r) : `<p class="tiny faint" style="margin-top:9px">${esc(t('adm.distNone'))}</p>`}</div>
+    </div>`).join('');
+
+  const orphans = (d.unassigned || []).length ? `
+    <div class="distrow">
+      <div class="rowline" style="flex-wrap:wrap;gap:8px">
+        <span class="distrow__name" style="color:var(--bad)">${esc(t('adm.distUnassigned'))}</span>
+        <span class="tiny faint">${esc(t('adm.distUnassignedHint'))}</span>
+      </div>
+      ${d.unassigned.map(s => `
+        <div class="distsec">
+          <div class="distsec__title">${esc(s.section.name)}</div>
+          ${s.students.map(st => `
+            <div class="diststu">
+              <span class="diststu__id ltr">${esc(st.id)}</span>
+              <span class="diststu__name">${esc(st.name)}</span>
+            </div>`).join('')}
+        </div>`).join('')}
+    </div>` : '';
+
+  $('#distList').innerHTML = (rows + orphans) || `<p class="empty">${esc(t('adm.taNoSections'))}</p>`;
+}
+
+/* One delegated handler, so re-rendering never leaves listeners behind. */
+$('#distList').addEventListener('click', e => {
+  const head = e.target.closest('.distrow__head');
+  if (!head) return;
+  const body = head.parentElement.querySelector('[data-body]');
+  const open = body.hidden;
+  body.hidden = !open;
+  head.setAttribute('aria-expanded', String(open));
+  head.querySelector('[data-toggle]').textContent = open ? t('adm.distHide') : t('adm.distShow');
+});
+
+$('#distList').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const head = e.target.closest('.distrow__head');
+  if (!head) return;
+  e.preventDefault();
+  head.click();
+});
+
+/* A plain-text roster the Main TA can paste into a message or a sheet. */
+function copyDistribution() {
+  if (!DIST) return;
+  const lines = [`${labName(current)} — ${t('adm.distTitle')}`, ''];
+
+  for (const r of DIST.rows) {
+    lines.push(`${r.ta.name} (${r.ta.username}) — ${t('adm.distCount', { done: r.done, total: r.total })}`);
+    for (const s of r.sections) {
+      lines.push(`  ${s.section.name} · ${s.section.day} ${s.section.time}`);
+      for (const st of s.students) {
+        const mark = st.marked ? (st.status === 'absent' ? statusText('absent') : st.grade) : '—';
+        lines.push(`    ${st.id}  ${st.name}  [${mark}]`);
+      }
+    }
+    lines.push('');
+  }
+
+  for (const s of DIST.unassigned || []) {
+    lines.push(`${t('adm.distUnassigned')} — ${s.section.name}`);
+    for (const st of s.students) lines.push(`    ${st.id}  ${st.name}`);
+    lines.push('');
+  }
+
+  copyText(lines.join('\n'));
+}
+
+/* ================= rubric editor ================= */
+
+function renderRubricEditor() {
+  const lab = LABS.find(l => l.id === current);
+  if (!lab) return;
+
+  $('#rubricSum').textContent = t('adm.rubricSum', {
+    lab: labName(lab.id), n: lab.rubric.length, total: lab.max
+  });
+  $('#rubricList').innerHTML = '';
+  lab.rubric.forEach(addRubRow);
+  rubTotal();
+}
+
+function addRubRow(r) {
+  const row = document.createElement('div');
+  row.className = 'rubrow';
+  row.dataset.code = r.id || '';
+  row.innerHTML = `
+    <input class="input" data-text type="text" maxlength="255" value="${esc(r.text)}"
+           placeholder="${esc(t('adm.rubricItemPh'))}">
+    <input class="input rubpts" data-pts type="number" min="0" max="100" value="${r.points}">
+    <button class="rubdel" type="button" aria-label="${esc(t('adm.rubricDelAria'))}">&times;</button>`;
+  $('#rubricList').appendChild(row);
+  rubTotal();
+}
+
+function rubItems() {
+  return $$('#rubricList .rubrow').map(el => ({
+    id:     el.dataset.code || undefined,
+    text:   el.querySelector('[data-text]').value.trim(),
+    points: +el.querySelector('[data-pts]').value || 0
+  }));
+}
+
+function rubTotal() {
+  const total = rubItems().reduce((a, r) => a + r.points, 0);
+  $('#rubTotal').textContent = t('adm.rubricTotal', { n: total });
+}
+
+async function saveRubric() {
+  const items = rubItems();
+  if (items.some(r => !r.text)) { toast(t('adm.rubricNoText'), 'bad'); return; }
+  if (items.reduce((a, r) => a + r.points, 0) <= 0) { toast(t('adm.rubricZero'), 'bad'); return; }
+
+  const btn = $('#rubSave');
+  btn.disabled = true; btn.textContent = t('act.saving');
+  const res = await Api.setRubric(current, items, $('#rubRecalc').checked);
+  btn.disabled = false; btn.textContent = t('adm.rubricSave');
+
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+
+  await refreshLabs();
+  loadLab();
+  loadAudit();
+  toast(res.recomputed
+    ? t('adm.rubricSavedN', { n: res.recomputed })
+    : t('adm.rubricSaved'));
+}
+
+/* ================= change requests ================= */
+
+async function loadRequests() {
+  const items = await Api.pendingRequests();
+
+  const base = t('app.courseCode') + ' · ' + t('adm.pageTitle');
+  document.title = items.length ? `(${items.length}) ${base}` : base;
+  $('#tabBadge').hidden = !items.length;
+  $('#tabBadge').textContent = items.length;
+  if (lastReqCount !== null && items.length > lastReqCount) notifyNew(items.length);
+  lastReqCount = items.length;
+
+  $('#reqSection').hidden = !items.length;
+  if (!items.length) return;
+
+  $('#reqCount').textContent = t('adm.reqCount', { n: items.length });
+  $('#reqList').innerHTML = items.map(r => `
+    <div class="reqrow" data-id="${r.id}">
+      <div class="reqrow__who">${esc(t('adm.reqLine', {
+        ta: r.taName, student: r.student ? r.student.name : r.studentId
+      }))}</div>
+      <div class="row__meta" style="white-space:normal">
+        ${esc(labName(r.labId))} · ${esc(r.sectionName)} · ${esc(fmtWhen(r.at))} ·
+        <span class="delta">${r.prevGrade === null ? '—' : r.prevGrade} → ${r.grade}</span>/${r.labMax}
+        ${r.prevTaName && r.prevTaName !== '—'
+          ? `· ${esc(t('adm.reqCurrentBy', { ta: r.prevTaName }))}` : ''}
+      </div>
+      <div class="reqreason">${esc(r.reason)}</div>
+      <div class="reqacts">
+        <button class="btn btn--ok"  type="button" data-act="approve">${esc(t('act.approve'))}</button>
+        <button class="btn btn--bad" type="button" data-act="reject">${esc(t('act.reject'))}</button>
+      </div>
+      <div class="stack-sm" data-box hidden style="margin-top:9px">
+        <textarea class="textarea" data-note placeholder="${esc(t('adm.rejectPh'))}"></textarea>
+        <div class="reqacts" style="margin:0">
+          <button class="btn btn--bad"   type="button" data-act="confirm">${esc(t('adm.confirmReject'))}</button>
+          <button class="btn btn--ghost" type="button" data-act="cancel">${esc(t('act.cancel'))}</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function onReqClick(e) {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+
+  const row = btn.closest('.reqrow');
+  const act = btn.dataset.act;
+
+  if (act === 'reject') { row.querySelector('[data-box]').hidden = false; return; }
+  if (act === 'cancel') { row.querySelector('[data-box]').hidden = true;  return; }
+
+  const decision = act === 'approve' ? 'approved' : 'rejected';
+  const note = act === 'confirm' ? row.querySelector('[data-note]').value : '';
+  if (decision === 'rejected' && note.trim().length < 3) {
+    toast(t('adm.needRejectNote'), 'bad');
+    return;
+  }
+
+  const btns = row.querySelectorAll('button');
+  btns.forEach(b => b.disabled = true);
+  const res = await Api.decideRequest(row.dataset.id, decision, note);
+  if (!res.ok) { toast(res.error, 'bad'); btns.forEach(b => b.disabled = false); return; }
+
+  toast(decision === 'approved' ? t('adm.approved') : t('adm.rejectedMsg'));
+  loadRequests(); loadLab(); loadMatrix(); loadFeed(); loadOverrides(); loadAudit();
+}
+
+function initNotify() {
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'default') $('#notifyBtn').hidden = false;
+}
+
+async function askNotify() {
+  try {
+    const p = await Notification.requestPermission();
+    $('#notifyBtn').hidden = p !== 'default';
+    toast(p === 'granted' ? t('adm.notifOn') : t('adm.notifOff'));
+  } catch { toast(t('adm.notifNA'), 'bad'); }
+}
+
+function notifyNew(count) {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      new Notification(t('adm.notifTitle'), { body: t('adm.notifBody', { n: count }) });
+    }
+  } catch {}
+}
+
+/* ================= reassignment ================= */
+
+function fillReassign() {
+  $('#rsSec').innerHTML = SECTIONS.map(s =>
+    `<option value="${esc(s.id)}">${esc(s.name)} — ${esc(s.day)} ${esc(s.time)}</option>`).join('');
+
+  const opts = TAS.map(ta => `<option value="${ta.id}">${esc(ta.name)}</option>`).join('');
+  $('#rsFrom').innerHTML = opts;
+  $('#rsTo').innerHTML   = opts;
+  if (TAS[1]) $('#rsTo').value = TAS[1].id;
+}
+
+async function doReassign() {
+  const res = await Api.reassign({
+    labId: current,
+    sectionId: $('#rsSec').value,
+    fromTaId: $('#rsFrom').value,
+    toTaId:   $('#rsTo').value,
+    onlyUnmarked: $('#rsOnly').checked
+  });
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+  toast(t('adm.moved', { n: res.moved }));
+  loadLab();
+  loadAudit();
+}
+
+async function clearReassign() {
+  await Api.clearReassign(current);
+  toast(t('adm.restored'));
+  loadLab();
+  loadAudit();
+}
+
+/* ================= term tab ================= */
+
+async function loadMatrix() {
+  const data = await Api.matrix();
+  $('#matrixHead').innerHTML = `<th class="sticky">${esc(t('noun.section'))}</th>` +
+    LABS.map(l => `<th style="text-align:center">L${l.id}</th>`).join('');
+
+  $('#matrixBody').innerHTML = data.map(r => `
+    <tr>
+      <td class="sticky"><strong>${esc(r.section.name)}</strong> <span class="tiny faint num">${r.total}</span></td>
+      ${r.cells.map(c => {
+        if (!c.started) return '<td class="cellpct faint">·</td>';
+        const tone = pctTone(c.pct);
+        return `<td class="cellpct" style="background:${tone.bg};color:${tone.fg}">${c.pct}</td>`;
+      }).join('')}
+    </tr>`).join('');
+}
+
+async function loadSchedule() {
+  const sc = await Api.schedule();
+  $('#schStart').value  = sc.startDate;
+  $('#schDays').value   = sc.weekDays;
+  $('#schAuto').checked = sc.auto;
+
+  $('#schRows').innerHTML = sc.labs.map(l => `
+    <tr>
+      <td class="sticky"><strong>${esc(labName(l.id))}</strong></td>
+      <td class="num tiny">${fmtDate(l.from)}</td>
+      <td class="num tiny">${fmtDate(l.to)}</td>
+      <td><span class="pill ${l.state === 'open' ? 'pill--ok' : ''}">${esc(t('lab.' + l.state))}</span></td>
+      <td class="tiny">${l.override
+        ? `<span class="pill pill--warn">${esc(t('adm.srcManual'))}</span>`
+        : `<span class="faint">${esc(t('adm.srcSchedule'))}</span>`}</td>
+      <td>${l.override
+        ? `<button class="btn btn--ghost" type="button" data-reset="${l.id}">${esc(t('adm.backToSched'))}</button>`
+        : ''}</td>
+    </tr>`).join('');
+}
+
+async function saveSchedule() {
+  const res = await Api.setSchedule({
+    startDate: $('#schStart').value,
+    weekDays: +$('#schDays').value,
+    auto: $('#schAuto').checked
+  });
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+  await refreshLabs();
+  toast(t('adm.schedSaved'));
+  loadAudit();
+}
+
+async function onSchRow(e) {
+  const b = e.target.closest('button[data-reset]');
+  if (!b) return;
+  await Api.setLabState(+b.dataset.reset, null);
+  await refreshLabs();
+  toast(t('adm.reverted'));
+  loadAudit();
+}
+
+async function doExport(kind) {
+  const res = kind === 'lab' ? await Api.exportLab(current) : await Api.exportAll();
+  lastCsv = res.csv;
+
+  const saved = download(res.filename, res.csv);
+  $('#expBox').hidden = false;
+  $('#expText').value = res.csv;
+  $('#expNote').textContent = saved
+    ? t('adm.exportSaved',  { f: res.filename })
+    : t('adm.exportManual', { f: res.filename });
+  $('#expBox').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function download(filename, text) {
+  try {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return true;
+  } catch { return false; }
+}
+
+/* ================= logs tab ================= */
+
+async function loadOverrides() {
+  const items = await Api.overrides(20);
+  $('#ovrList').innerHTML = items.length ? items.map(e => `
+    <div class="ovr">
+      <div class="rowline" style="flex-wrap:wrap;gap:6px">
+        <span class="ovr__who">${esc(t('adm.ovrLine', {
+          ta: e.taName, student: e.student ? e.student.name : e.studentId
+        }))}</span>
+        ${e.viaRequest ? `<span class="pill pill--ok">${esc(t('adm.ovrApproved'))}</span>` : ''}
+        ${e.byMain ? `<span class="pill pill--bad">${esc(t('adm.ovrByMain'))}</span>` : ''}
+        ${e.afterClose ? `<span class="pill pill--warn">${esc(t('adm.ovrAfterClose'))}</span>` : ''}
+      </div>
+      <div class="row__meta">
+        ${esc(labName(e.labId))} · ${esc(e.sectionName)} · ${esc(fmtWhen(e.at))} ·
+        ${esc(t('adm.ovrGrade', { g: e.grade }))}
+      </div>
+      <div class="reason">${esc(e.reason)}</div>
+    </div>`).join('')
+    : `<p class="empty">${esc(t('adm.ovrEmpty'))}</p>`;
+}
+
+/* Administrative actions: lab state, rubric, schedule, reassignment, accounts. */
+async function loadAudit() {
+  const items = await Api.auditLog(30);
+  $('#auditList').innerHTML = items.length ? items.map(a => {
+    // A lab target is stored as its number, so it is named in the reader's language.
+    const target = a.targetType === 'lab'
+      ? labName(a.target)
+      : (a.targetLabel || a.target || '—');
+    return `
+    <div class="row">
+      <div class="row__main">
+        <div class="row__name" style="white-space:normal">
+          ${esc(t('audit.' + a.action, { target }))}
+        </div>
+        <div class="row__meta">${esc(a.actorName)} · ${esc(fmtWhen(a.at))}${
+          a.detail ? ' · ' + esc(a.detail) : ''}</div>
+      </div>
+    </div>`;
+  }).join('')
+    : `<p class="empty">${esc(t('adm.auditEmpty'))}</p>`;
+}
+
+async function loadFeed() {
+  const items = await Api.activity(12);
+  const maxOf = id => (LABS.find(l => l.id === id) || {}).max || 10;
+
+  $('#feed').innerHTML = items.length ? items.map(e => `
+    <div class="row">
+      <div class="row__main">
+        <div class="row__name">
+          ${esc(e.taName)} <span class="faint" style="font-weight:400">${esc(t('adm.feedVerb'))}</span>
+          ${esc(e.student ? e.student.name : e.studentId)}
+        </div>
+        <div class="row__meta">${esc(labName(e.labId))} · ${esc(e.sectionName)} · ${esc(fmtWhen(e.at))}</div>
+      </div>
+      ${e.reason ? `<span class="pill pill--warn">${esc(t('adm.feedAmend'))}</span>` : ''}
+      <span class="pill ${STATUS_PILL[e.status]}">${esc(statusText(e.status))}</span>
+      <span class="row__score">${e.grade}<span class="faint">/${maxOf(e.labId)}</span></span>
+    </div>`).join('')
+    : `<p class="empty">${esc(t('adm.feedEmpty'))}</p>`;
+}
+</script>
+
+</body>
+</html>

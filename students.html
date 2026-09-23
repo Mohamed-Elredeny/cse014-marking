@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-title-key="stu.pageTitle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>CSE014</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/i18n.js"></script>
+<style>
+  .shell{padding-block:15px 108px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__in">
+    <div class="row__main">
+      <div class="topbar__title" id="hTitle">—</div>
+      <div class="topbar__sub" id="hSub">—</div>
+    </div>
+    <span class="counter" id="counter">—</span>
+    <button data-lang-switch></button>
+  </div>
+</header>
+
+<main class="shell stack">
+
+  <div class="steps" id="steps"></div>
+
+  <div id="closedBanner" class="banner banner--warn" hidden></div>
+
+  <div class="card stack-sm">
+    <div class="chips" id="filterChips"></div>
+    <input class="input" id="q" type="search" autocomplete="off" spellcheck="false"
+           data-i18n-ph="stu.search">
+  </div>
+
+  <div class="stack-sm" id="studentList"></div>
+
+  <div id="outside" class="stack-sm" hidden>
+    <p class="eyebrow" data-i18n="stu.outside"></p>
+    <div class="stack-sm" id="outsideList"></div>
+  </div>
+
+</main>
+
+<div class="actionbar">
+  <div class="actionbar__in">
+    <button class="btn" id="prev" type="button" data-i18n="act.back"></button>
+    <button class="btn btn--primary btn--lg btn--block" id="next" type="button" disabled></button>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/flow.js"></script>
+<script>
+const me = requireUser(['ta', 'main']);
+const isMain = !!me && me.role === 'main';
+
+let lab = null, section = null, roster = [], visible = [], filter = 'left', searchSeq = 0;
+
+if (me) init();
+
+async function init() {
+  if (!Flow.sectionId) { location.replace(Flow.url('sections.html')); return; }
+  Flow.stepper(2, $('#steps'));
+  $('#studentList').innerHTML = skeleton(4);
+  $('#next').textContent = t('act.next');
+
+  $('#prev').addEventListener('click', () => Flow.go('sections.html'));
+  $('#next').addEventListener('click', () => {
+    const nx = visible.find(s => !s.entry);
+    if (nx) Flow.go('grade.html', { student: nx.id });
+  });
+
+  let searchTimer;
+  $('#q').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderStudents, 180);
+  });
+
+  const [labs, sections] = await Promise.all([Api.labs(), Api.sections()]);
+  lab = labs.find(l => l.id === Flow.labId);
+  section = sections.find(s => s.id === Flow.sectionId);
+  if (!lab || !section) { location.replace('sections.html'); return; }
+
+  $('#hTitle').textContent = `${labName(lab.id)} · ${t('noun.student')}`;
+  $('#hSub').textContent   = `${section.name} · ${section.day} ${section.time} · ${section.room}`;
+
+  const b = $('#closedBanner');
+  b.hidden = lab.state !== 'closed';
+  if (!b.hidden) b.textContent = t('sec.closedNote', { lab: labName(lab.id) });
+
+  roster = await Api.roster({ sectionId: section.id, labId: lab.id, taId: me.id });
+  const mine = roster.filter(s => s.mine);
+  $('#counter').textContent = `${mine.filter(s => s.entry).length}/${mine.length}`;
+
+  renderFilters();
+  renderStudents();
+}
+
+function renderFilters() {
+  const mine = roster.filter(s => s.mine);
+  const left = mine.filter(s => !s.entry);
+
+  const opts = isMain
+    ? [['left', t('stu.filterLeftMain', { n: roster.filter(s => !s.entry).length })],
+       ['all',  t('stu.filterAll',      { n: roster.length })]]
+    : [['left', t('stu.filterLeft', { n: left.length })],
+       ['mine', t('stu.filterMine', { n: mine.length })],
+       ['all',  t('stu.filterAll',  { n: roster.length })]];
+
+  $('#filterChips').innerHTML = opts.map(([v, label]) =>
+    `<button class="chip" type="button" data-f="${v}" aria-pressed="${v === filter}">${esc(label)}</button>`).join('');
+
+  $$('#filterChips .chip').forEach(c => c.addEventListener('click', () => {
+    filter = c.dataset.f;
+    $$('#filterChips .chip').forEach(x => x.setAttribute('aria-pressed', x === c));
+    renderStudents();
+  }));
+}
+
+function rowHtml(s, at, len) {
+  let pill = `<span class="pill">${esc(t('stu.notMarked'))}</span>`;
+  if (s.pending)                    pill = `<span class="pill pill--warn">${esc(t('stu.pendingReq'))}</span>`;
+  else if (s.entry && s.entry.byMe) pill = `<span class="pill pill--ok">${s.entry.grade}/${lab.max}</span>`;
+  else if (s.entry)                 pill = `<span class="pill pill--warn">${s.entry.grade}/${lab.max} · ${esc(t('stu.otherTa'))}</span>`;
+  else if (s.mine === false)        pill = `<span class="pill">${esc(t('stu.assignedOther'))}</span>`;
+
+  // A teaching assistant only needs the name when the student is not theirs.
+  // The Main TA is nominally "assigned" every student, so for them the
+  // responsible assistant is always worth showing.
+  const showTa = s.assignedTaName && s.assignedTaName !== '—' && (isMain || s.mine === false);
+  const sub = showTa ? ' · ' + esc(s.assignedTaName) : '';
+  return `
+    <a class="srow ${s.mine === false ? 'srow--other' : ''}" href="${Flow.url('grade.html', { student: s.id })}">
+      <div class="row__main">
+        <div class="srow__name">${hl(s.name, at == null ? -1 : at, len || 0)}</div>
+        <div class="row__meta"><span class="num ltr">${esc(s.id)}</span>${sub}</div>
+      </div>
+      ${pill}
+    </a>`;
+}
+
+async function renderStudents() {
+  const q = $('#q').value.trim();
+  let list = roster.slice();
+  if (filter === 'left')      list = list.filter(s => !s.entry && (isMain || s.mine));
+  else if (filter === 'mine') list = list.filter(s => s.mine);
+
+  if (q) {
+    const nq = q.toLowerCase();
+    list = list.filter(s => s.id.includes(q) || s.name.includes(q) || s.email.toLowerCase().includes(nq));
+  }
+
+  visible = list;
+  $('#studentList').innerHTML = list.length
+    ? list.map(s => rowHtml(s)).join('')
+    : `<p class="empty">${esc(q ? t('stu.noResults') : t('stu.allDone'))}</p>`;
+
+  const nx = list.find(s => !s.entry);
+  $('#next').disabled = !nx;
+  $('#next').textContent = nx ? t('stu.nextIs', { name: nx.name }) : t('stu.listDone');
+
+  await renderOutside(q);
+}
+
+/* A student from another section who attended this one by exception. */
+async function renderOutside(q) {
+  const box = $('#outside');
+  if (q.length < 2) { box.hidden = true; return; }
+
+  const seq = ++searchSeq;
+  const res = await Api.searchStudents(q, { sectionId: section.id, labId: lab.id });
+  if (seq !== searchSeq) return;
+
+  const extras = res.items.filter(x => x.sectionId !== section.id).slice(0, 5);
+  if (!extras.length) { box.hidden = true; return; }
+
+  $('#outsideList').innerHTML = extras.map(x => rowHtml({
+    id: x.id, name: x.name, mine: false, assignedTaName: x.section.name,
+    entry: x.existing ? { ...x.existing, byMe: x.existing.taId === me.id } : null,
+    pending: null
+  }, x.match.field === 'name' ? x.match.at : -1, x.match.len)).join('');
+  box.hidden = false;
+}
+</script>
+
+</body>
+</html>

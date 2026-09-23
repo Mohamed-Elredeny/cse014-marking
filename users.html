@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-title-key="usr.pageTitle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>CSE014</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/i18n.js"></script>
+<style>
+  .shell--wide{max-width:900px}
+  .topbar--wide .topbar__in{max-width:900px}
+
+  .urow{padding:14px 0}
+  .urow--off{opacity:.55}
+  .urow__name{font-weight:700;font-size:.95rem}
+  .urow__user{font-family:var(--mono);font-size:.78rem;color:var(--ink-3)}
+  .usecs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .usec{
+    font-size:.73rem;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;
+    background:var(--surface-2);color:var(--ink-2);
+  }
+  .uacts{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+  .uacts .btn{min-height:36px;font-size:.84rem;padding:0 13px}
+
+  .panel{margin-top:11px;padding:15px;border-radius:var(--radius-sm);background:var(--surface-2)}
+  .secgrid{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(155px,1fr))}
+  .secpick{
+    display:flex;align-items:center;gap:9px;font-size:.84rem;font-weight:600;
+    background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer;
+    transition:border-color .14s ease,background .14s ease,color .14s ease;
+  }
+  .secpick input{width:17px;height:17px;accent-color:var(--brand);flex:0 0 auto}
+  .secpick:has(input:checked){border-color:var(--brand);background:var(--brand-tint);color:var(--brand)}
+
+  .pwbox{
+    font-family:var(--mono);direction:ltr;text-align:left;
+    font-size:.95rem;line-height:1.8;
+    background:var(--surface-2);border-radius:var(--radius-sm);padding:11px 13px;
+    user-select:all;
+  }
+
+  .logrow{display:flex;align-items:center;gap:11px;padding:10px 0}
+  .logrow__meta{font-size:.76rem;color:var(--ink-3)}
+</style>
+</head>
+<body>
+
+<header class="topbar topbar--wide">
+  <div class="topbar__in">
+    <div class="row__main">
+      <div class="topbar__title" data-i18n="usr.pageTitle"></div>
+      <div class="topbar__sub" id="meName">—</div>
+    </div>
+    <a class="btn btn--ghost" href="tools/import.php" data-i18n="adm.import"></a>
+    <a class="btn btn--ghost" href="admin.html" data-i18n="adm.pageTitle"></a>
+    <button data-lang-switch></button>
+  </div>
+</header>
+
+<main class="shell shell--wide stack" style="padding-bottom:44px">
+
+  <div class="card stack" id="addCard">
+    <div class="rowline">
+      <h2 style="font-size:1rem" data-i18n="usr.addTitle"></h2>
+      <span class="spacer"></span>
+      <button class="btn btn--ghost" id="addToggle" type="button" data-i18n="usr.addNew"></button>
+    </div>
+
+    <div id="addForm" hidden class="stack">
+      <div class="fields fields--2">
+        <div>
+          <label class="label" for="nUser" data-i18n="usr.username"></label>
+          <input class="input ltr" id="nUser" type="text" autocomplete="off">
+        </div>
+        <div>
+          <label class="label" for="nName" data-i18n="usr.fullName"></label>
+          <input class="input" id="nName" type="text">
+        </div>
+      </div>
+      <div class="fields fields--2">
+        <div>
+          <label class="label" for="nMail">
+            <span data-i18n="usr.email"></span>
+            <span class="faint" data-i18n="usr.emailHint"></span>
+          </label>
+          <input class="input ltr" id="nMail" type="email" autocomplete="off" placeholder="name@aiu.edu.eg">
+        </div>
+        <div>
+          <label class="label" for="nPass">
+            <span data-i18n="usr.password"></span>
+            <span class="faint" data-i18n="usr.passwordHint"></span>
+          </label>
+          <input class="input ltr" id="nPass" type="text" autocomplete="off" data-i18n-ph="usr.passwordPh">
+        </div>
+      </div>
+      <label class="switchrow" for="nMain">
+        <input type="checkbox" id="nMain">
+        <span data-i18n="usr.isMain"></span>
+      </label>
+      <div class="rowline">
+        <button class="btn btn--primary" id="nSave" type="button" data-i18n="act.add"></button>
+        <button class="btn btn--ghost" id="nCancel" type="button" data-i18n="act.cancel"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card stack-sm" id="pwCard" hidden>
+    <div class="rowline">
+      <h2 style="font-size:1rem" data-i18n="usr.pwTitle"></h2>
+      <span class="spacer"></span>
+      <button class="btn btn--ghost" id="pwCopy" type="button" data-i18n="act.copy"></button>
+    </div>
+    <p class="tiny faint" data-i18n="usr.pwOnce"></p>
+    <div class="pwbox" id="pwText">—</div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2 data-i18n="usr.accounts"></h2>
+      <span class="tiny faint" id="uCount">—</span>
+    </div>
+    <div class="card"><div class="list" id="uList"></div></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2 data-i18n="log.title"></h2>
+      <span class="spacer"></span>
+      <div class="chips" id="logFilter">
+        <button class="chip" type="button" data-f=""     aria-pressed="true"  data-i18n="log.all"></button>
+        <button class="chip" type="button" data-f="fail" aria-pressed="false" data-i18n="log.failed"></button>
+      </div>
+    </div>
+    <div class="card"><div class="list" id="logList"></div></div>
+  </section>
+
+</main>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+const me = requireUser('main');
+
+let USERS = [], SECTIONS = [], MEID = 0, logFilter = '';
+
+if (me) init();
+
+async function init() {
+  $('#meName').textContent = me.name;
+  $('#uList').innerHTML   = skeleton(4);
+  $('#logList').innerHTML = skeleton(3);
+
+  $('#addToggle').addEventListener('click', () => {
+    const f = $('#addForm');
+    f.hidden = !f.hidden;
+    $('#addToggle').textContent = f.hidden ? t('usr.addNew') : t('act.close');
+    if (!f.hidden) $('#nUser').focus();
+  });
+
+  $('#nCancel').addEventListener('click', closeAddForm);
+  $('#nSave').addEventListener('click', addUser);
+  $('#pwCopy').addEventListener('click', () => copyText(lastPw));
+  $('#uList').addEventListener('click', onRowClick);
+
+  $$('#logFilter .chip').forEach(c => c.addEventListener('click', () => {
+    logFilter = c.dataset.f;
+    $$('#logFilter .chip').forEach(x => x.setAttribute('aria-pressed', x === c));
+    loadLog();
+  }));
+
+  await loadUsers();
+  loadLog();
+}
+
+function closeAddForm() {
+  $('#addForm').hidden = true;
+  $('#addToggle').textContent = t('usr.addNew');
+}
+
+/* ================= accounts ================= */
+
+async function loadUsers() {
+  const d = await Api.users();
+  USERS = d.users; SECTIONS = d.sections; MEID = d.meId;
+
+  const active = USERS.filter(u => u.active).length;
+  $('#uCount').textContent = t('usr.countLine', { n: USERS.length, active });
+
+  $('#uList').innerHTML = USERS.map(u => `
+    <div class="urow ${u.active ? '' : 'urow--off'}" data-id="${u.id}">
+      <div class="rowline" style="flex-wrap:wrap;gap:8px">
+        <span class="urow__name">${esc(u.name)}</span>
+        <span class="urow__user ltr">${esc(u.username)}</span>
+        ${u.role === 'main' ? `<span class="pill pill--brand">${esc(t('role.main'))}</span>` : ''}
+        ${u.active ? '' : `<span class="pill pill--bad">${esc(t('usr.suspended'))}</span>`}
+        ${u.id === MEID ? `<span class="pill">${esc(t('usr.you'))}</span>` : ''}
+        <span class="spacer"></span>
+        <span class="row__meta">
+          ${esc(t('usr.entries', { n: u.marks }))} ·
+          ${esc(u.lastLogin ? t('time.lastSeen', { t: fmtWhen(u.lastLogin) }) : t('time.never'))}
+        </span>
+      </div>
+
+      <div class="row__meta" style="margin-top:4px">
+        ${u.email
+          ? `<span class="num ltr">${esc(u.email)}</span>`
+          : `<span style="color:var(--warn)">${esc(t('usr.noEmail'))}</span>`}
+      </div>
+
+      ${u.role === 'ta' ? `<div class="usecs">${
+        u.sections.length
+          ? u.sections.map(s => `<span class="usec">${esc(s.name)}</span>`).join('')
+          : `<span class="tiny faint">${esc(t('usr.noSections'))}</span>`
+      }</div>` : ''}
+
+      <div class="uacts">
+        <button class="btn" data-act="edit">${esc(t('act.edit'))}</button>
+        ${u.role === 'ta' ? `<button class="btn" data-act="secs">${esc(t('usr.actSections'))}</button>` : ''}
+        <button class="btn" data-act="pw">${esc(t('usr.actPassword'))}</button>
+        <button class="btn ${u.active ? 'btn--bad' : ''}" data-act="toggle">
+          ${esc(u.active ? t('usr.actSuspend') : t('usr.actActivate'))}
+        </button>
+      </div>
+
+      <div class="panel" data-panel hidden></div>
+    </div>`).join('');
+}
+
+const userById = id => USERS.find(u => u.id === +id);
+
+async function onRowClick(e) {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+
+  const row = btn.closest('.urow');
+  const u = userById(row.dataset.id);
+  const panel = row.querySelector('[data-panel]');
+
+  if (btn.dataset.act === 'edit')   return openEdit(u, panel);
+  if (btn.dataset.act === 'secs')   return openSections(u, panel);
+  if (btn.dataset.act === 'pw')     return resetPassword(u);
+  if (btn.dataset.act === 'toggle') return toggleActive(u);
+}
+
+/* ---------------- edit ---------------- */
+
+function openEdit(u, panel) {
+  if (!panel.hidden && panel.dataset.kind === 'edit') { panel.hidden = true; return; }
+  panel.dataset.kind = 'edit';
+  panel.innerHTML = `
+    <div class="stack">
+      <div class="fields fields--2">
+        <div>
+          <label class="label">${esc(t('usr.fullName'))}</label>
+          <input class="input" data-name value="${esc(u.name)}">
+        </div>
+        <div>
+          <label class="label">${esc(t('usr.email'))}</label>
+          <input class="input ltr" data-mail type="email" value="${esc(u.email)}">
+        </div>
+      </div>
+      <label class="switchrow">
+        <input type="checkbox" data-main ${u.role === 'main' ? 'checked' : ''}>
+        <span>${esc(t('role.main'))}</span>
+      </label>
+      <label class="switchrow">
+        <input type="checkbox" data-notify ${u.notify ? 'checked' : ''}>
+        <span>${esc(t('usr.notifyOn'))}</span>
+      </label>
+      <div class="rowline">
+        <button class="btn btn--primary" data-save>${esc(t('act.save'))}</button>
+        <button class="btn btn--ghost" data-close>${esc(t('act.cancel'))}</button>
+      </div>
+    </div>`;
+  panel.hidden = false;
+
+  panel.querySelector('[data-close]').onclick = () => panel.hidden = true;
+  panel.querySelector('[data-save]').onclick = async () => {
+    const res = await Api.saveUser({
+      id: u.id,
+      name:   panel.querySelector('[data-name]').value.trim(),
+      email:  panel.querySelector('[data-mail]').value.trim(),
+      role:   panel.querySelector('[data-main]').checked ? 'main' : 'ta',
+      notify: panel.querySelector('[data-notify]').checked
+    });
+    if (!res.ok) { toast(res.error, 'bad'); return; }
+    toast(t('act.saved'));
+    await loadUsers();
+  };
+}
+
+/* ---------------- sections ---------------- */
+
+function openSections(u, panel) {
+  if (!panel.hidden && panel.dataset.kind === 'secs') { panel.hidden = true; return; }
+  panel.dataset.kind = 'secs';
+
+  const has = new Set(u.sections.map(s => s.id));
+  panel.innerHTML = `
+    <div class="stack">
+      <p class="tiny faint">${esc(t('usr.secPanelHint'))}</p>
+      <div class="secgrid">
+        ${SECTIONS.map(s => `
+          <label class="secpick">
+            <input type="checkbox" value="${esc(s.id)}" ${has.has(s.id) ? 'checked' : ''}>
+            <span>${esc(s.name)}<br><span class="tiny faint">${esc(s.day)} ${esc(s.time)}</span></span>
+          </label>`).join('')}
+      </div>
+      <div class="rowline">
+        <button class="btn btn--primary" data-save>${esc(t('act.save'))}</button>
+        <button class="btn btn--ghost" data-close>${esc(t('act.cancel'))}</button>
+      </div>
+    </div>`;
+  panel.hidden = false;
+
+  panel.querySelector('[data-close]').onclick = () => panel.hidden = true;
+  panel.querySelector('[data-save]').onclick = async () => {
+    const ids = $$('input:checked', panel).filter(i => i.value).map(i => i.value);
+    const res = await Api.setUserSections(u.id, ids);
+    if (!res.ok) { toast(res.error, 'bad'); return; }
+    toast(t('usr.secSaved', { n: res.count }));
+    await loadUsers();
+  };
+}
+
+/* ---------------- password and suspension ---------------- */
+
+async function resetPassword(u) {
+  if (!confirm(t('usr.confirmPw', { name: u.name }))) return;
+  const res = await Api.resetPassword(u.id);
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+  showPassword(u.username, res.password);
+}
+
+async function toggleActive(u) {
+  if (u.active && !confirm(t('usr.confirmOff', { name: u.name }))) return;
+  const res = await Api.setUserActive(u.id, !u.active);
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+  toast(u.active ? t('usr.suspendedMsg') : t('usr.activatedMsg'));
+  await loadUsers();
+}
+
+async function addUser() {
+  const username = $('#nUser').value.trim();
+  const res = await Api.saveUser({
+    username,
+    name:     $('#nName').value.trim(),
+    email:    $('#nMail').value.trim(),
+    password: $('#nPass').value,
+    role:     $('#nMain').checked ? 'main' : 'ta'
+  });
+  if (!res.ok) { toast(res.error, 'bad'); return; }
+
+  showPassword(username, res.password);
+  ['#nUser', '#nName', '#nMail', '#nPass'].forEach(s => $(s).value = '');
+  $('#nMain').checked = false;
+  closeAddForm();
+  await loadUsers();
+}
+
+let lastPw = '';
+
+function showPassword(username, pw) {
+  lastPw = `${username} : ${pw}`;
+  $('#pwText').textContent = lastPw;
+  $('#pwCard').hidden = false;
+  $('#pwCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/* ================= sign-in log ================= */
+
+async function loadLog() {
+  const items = await Api.loginLog(40, logFilter);
+  $('#logList').innerHTML = items.length ? items.map(l => `
+    <div class="logrow">
+      <span class="pill ${l.ok ? 'pill--ok' : 'pill--bad'}">${esc(l.ok ? t('log.ok') : t('log.fail'))}</span>
+      <div class="row__main">
+        <div class="row__name">${esc(l.name || l.username)}</div>
+        <div class="logrow__meta">
+          <span class="num ltr">${esc(l.username)}</span> · ${esc(l.agent)} ·
+          <span class="num ltr">${esc(l.ip || '—')}</span>
+        </div>
+      </div>
+      <span class="row__meta">${esc(fmtWhen(l.at))}</span>
+    </div>`).join('')
+    : `<p class="empty">${esc(t('log.empty'))}</p>`;
+}
+</script>
+
+</body>
+</html>

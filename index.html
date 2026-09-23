@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-title-key="login.pageTitle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>CSE014</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/i18n.js"></script>
+<style>
+  .signin{max-width:440px;margin:0 auto;width:100%}
+  .signin__top{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+  .signin__foot{margin-top:18px;text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="shell shell--center">
+  <div class="signin">
+
+    <div class="signin__top">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">CSE<br>014</div>
+        <div>
+          <div class="brand__name" data-i18n="app.name"></div>
+          <div class="brand__term">
+            <span data-i18n="app.course"></span> · <span data-i18n="app.term"></span>
+          </div>
+        </div>
+      </div>
+      <span class="spacer"></span>
+      <button data-lang-switch></button>
+    </div>
+
+    <div class="card card--lift stack">
+      <div>
+        <h1 data-i18n="login.heading"></h1>
+        <p class="small muted" data-i18n="login.lede"></p>
+      </div>
+
+      <div id="err" class="banner banner--bad" hidden role="alert"></div>
+
+      <form id="form" class="stack" novalidate>
+        <div>
+          <label class="label" for="username" data-i18n="login.username"></label>
+          <input class="input ltr" id="username" name="username" type="text"
+                 autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        </div>
+        <div>
+          <label class="label" for="password" data-i18n="login.password"></label>
+          <input class="input ltr" id="password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+        <button class="btn btn--primary btn--lg btn--block" id="submit" type="submit"
+                data-i18n="act.signIn"></button>
+      </form>
+    </div>
+
+    <p class="tiny faint signin__foot" data-i18n="login.help"></p>
+
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+/* An existing session skips the form entirely. */
+const existing = Api.me();
+if (existing) location.replace(existing.role === 'main' ? 'admin.html' : 'sections.html');
+
+const form = $('#form'), err = $('#err'), btn = $('#submit');
+
+async function doLogin(username, password) {
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = t('login.working');
+
+  const res = await Api.login(username, password);
+
+  btn.disabled = false;
+  btn.textContent = t('act.signIn');
+
+  if (!res.ok) {
+    err.textContent = res.error;
+    err.hidden = false;
+    $('#password').value = '';
+    $('#password').focus();
+    return;
+  }
+  location.href = res.user.role === 'main' ? 'admin.html' : 'sections.html';
+}
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  doLogin($('#username').value.trim(), $('#password').value);
+});
+</script>
+
+</body>
+</html>

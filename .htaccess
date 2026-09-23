@@ -1,0 +1,74 @@
+# ==========================================================================
+#  Marking — Apache configuration
+#
+#  This application is normally deployed inside a larger site, for example
+#  /courses/cse014/ under a faculty domain. Apache merges .htaccess files
+#  from every parent directory, so this file deliberately re-states what it
+#  needs instead of relying on whatever the parent happens to set.
+#
+#  On nginx none of this applies; see README.md and data/deploy/DEPLOY.md
+#  for the equivalent server-block rules.
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# Detach from the parent site's rewriting.
+#
+# A site at the document root often routes every request to a front
+# controller. Those rules would otherwise swallow requests to this folder.
+# Declaring our own engine confines this directory to itself; we add no rules
+# of our own, so nothing here is rewritten.
+# --------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Apache 2.4.8 and later can refuse inherited rules outright. If the server
+  # is older it will reject this directive with a 500 — remove the line then.
+  RewriteOptions IgnoreInherit
+</IfModule>
+
+# Stated explicitly rather than inherited: no directory listings, and no
+# content negotiation guessing at extensions.
+Options -Indexes -MultiViews
+
+DirectoryIndex index.html
+
+# Files that must never be reachable from a browser.
+<FilesMatch "^(config\.php|config\.sample\.php|config\.production\.php|.*\.sql|.*\.log|.*\.md)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# --------------------------------------------------------------------------
+# Response headers for the static pages.
+#
+# Each header is cleared before being set, so a value appended by a parent
+# .htaccess cannot combine with ours — two Content-Security-Policy headers
+# are intersected by the browser, which would break the pages.
+#
+# The API sets the same headers from PHP (api/_bootstrap.php), so the
+# endpoints stay protected even where mod_headers is unavailable.
+# --------------------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header always unset Content-Security-Policy
+  Header always unset X-Content-Type-Options
+  Header always unset X-Frame-Options
+  Header always unset Referrer-Policy
+  Header always unset Permissions-Policy
+
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "same-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+  # The pages carry inline <script> and <style> blocks and load Google Fonts;
+  # everything else is restricted to this origin.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'"
+
+  # Enable once the whole site is served over HTTPS.
+  # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>

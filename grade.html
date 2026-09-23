@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-title-key="grd.pageTitle">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>CSE014</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/js/i18n.js"></script>
+<style>
+  .shell{padding-block:15px 108px}
+
+  /* ---------- rubric criterion ---------- */
+  .crit{
+    display:flex;align-items:center;gap:11px;position:relative;
+    padding:12px 13px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);
+    background:var(--surface);cursor:pointer;
+    transition:border-color .14s ease,background .14s ease;
+  }
+  .crit input{position:absolute;opacity:0;width:0;height:0}
+  .crit__box{
+    width:22px;height:22px;border-radius:7px;flex:0 0 auto;
+    border:2px solid var(--line-strong);background:var(--surface);
+    display:grid;place-items:center;transition:.14s ease;
+  }
+  .crit__box::after{
+    content:'';width:10px;height:6px;
+    border:2px solid var(--on-brand);border-top:0;border-inline-end:0;
+    transform:rotate(-45deg) scale(.5);opacity:0;transition:.14s ease;
+  }
+  .crit__label{flex:1;font-size:.92rem;font-weight:600;line-height:1.45}
+  .crit__pts{font-family:var(--mono);font-weight:700;font-size:.9rem;color:var(--ink-3)}
+  .crit:hover:not(.crit--off){border-color:var(--brand)}
+  .crit--on{border-color:var(--brand);background:var(--brand-tint)}
+  .crit--on .crit__box{background:var(--brand);border-color:var(--brand)}
+  .crit--on .crit__box::after{opacity:1;transform:rotate(-45deg) scale(1)}
+  .crit--on .crit__pts{color:var(--brand)}
+  .crit--off{opacity:.5;cursor:not-allowed}
+  .crit input:focus-visible ~ .crit__box{outline:2px solid var(--brand);outline-offset:2px}
+
+  /* ---------- running total ---------- */
+  .scorebadge{
+    font-family:var(--mono);font-weight:700;font-size:1.05rem;
+    background:var(--brand-soft);color:var(--brand);
+    border-radius:999px;padding:5px 13px;white-space:nowrap;
+  }
+  .scorebadge--manual{background:var(--warn-soft);color:var(--warn)}
+
+  /* ---------- student header ---------- */
+  .student{
+    background:var(--brand-tint);border:1px solid var(--brand-soft);
+    border-radius:var(--radius-sm);padding:13px 15px;
+  }
+  .student__name{font-weight:700;font-size:1.05rem;line-height:1.3}
+  .student__meta{font-size:.78rem;color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__in">
+    <div class="row__main">
+      <div class="topbar__title" id="hTitle">—</div>
+      <div class="topbar__sub" id="hSub">—</div>
+    </div>
+    <span class="counter" id="counter">—</span>
+    <button data-lang-switch></button>
+  </div>
+</header>
+
+<main class="shell stack">
+
+  <div class="steps" id="steps"></div>
+
+  <div class="card stack" id="form" hidden>
+    <div class="student">
+      <div class="student__name" id="stName">—</div>
+      <div class="student__meta">
+        <span class="num ltr" id="stId">—</span> · <span id="stSec">—</span>
+      </div>
+    </div>
+
+    <div id="flag" class="banner banner--warn" hidden></div>
+
+    <div id="reasonWrap" hidden>
+      <label class="label" for="reason">
+        <span id="reasonLabel"></span>
+        <span style="color:var(--bad)" data-i18n="grd.required"></span>
+      </label>
+      <div class="chips" id="reasonChips" style="margin-bottom:9px"></div>
+      <textarea class="textarea" id="reason" data-i18n-ph="grd.reasonPh"></textarea>
+    </div>
+
+    <div>
+      <span class="label" data-i18n="noun.attendance"></span>
+      <div class="seg" id="seg">
+        <button type="button" data-v="present" aria-pressed="true"  data-i18n="status.present"></button>
+        <button type="button" data-v="late"    aria-pressed="false" data-i18n="status.late"></button>
+        <button type="button" data-v="absent"  aria-pressed="false" data-i18n="status.absent"></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="rowline" style="margin-bottom:9px">
+        <span class="label" style="margin:0" data-i18n="noun.rubric"></span>
+        <span class="spacer"></span>
+        <span class="scorebadge" id="scoreBadge">0/10</span>
+      </div>
+
+      <div class="stack-sm" id="rubric"></div>
+
+      <div class="rowline" style="margin-top:11px">
+        <button class="btn btn--ghost" id="allBtn" type="button" data-i18n="grd.fullMarks"></button>
+        <span class="spacer"></span>
+        <button class="btn btn--ghost" id="manualBtn" type="button" data-i18n="grd.manual"></button>
+      </div>
+
+      <div id="manualWrap" hidden style="margin-top:11px">
+        <div class="pad" id="pad"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="actionbar">
+  <div class="actionbar__in">
+    <button class="btn" id="prev" type="button" data-i18n="act.back"></button>
+    <button class="btn btn--primary btn--lg btn--block" id="next" type="button" disabled></button>
+  </div>
+</div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/flow.js"></script>
+<script>
+const me = requireUser(['ta', 'main']);
+const isMain = !!me && me.role === 'main';
+
+let lab = null, section = null, student = null, roster = [];
+let checked = new Set(), manual = null, touched = false, status = 'present';
+
+/* Prepared reasons — [button label key, full text key] */
+const REASONS = {
+  request: [
+    ['reason.otherSection', 'reason.otherSectionT'],
+    ['reason.repeated',     'reason.repeatedT'],
+    ['reason.entryError',   'reason.entryErrorT']
+  ],
+  closed: [
+    ['reason.excused',    'reason.excusedT'],
+    ['reason.myError',    'reason.myErrorT'],
+    ['reason.appeal',     'reason.appealT']
+  ],
+  main: [
+    ['reason.reviewed',       'reason.reviewedT'],
+    ['reason.markingError',   'reason.markingErrorT'],
+    ['reason.administrative', 'reason.administrativeT']
+  ]
+};
+
+if (me) init();
+
+async function init() {
+  if (!Flow.sectionId || !Flow.studentId) { location.replace(Flow.url('students.html')); return; }
+  Flow.stepper(3, $('#steps'));
+
+  $('#next').textContent = t('act.save');
+  $('#prev').addEventListener('click', () => Flow.go('students.html'));
+  $('#next').addEventListener('click', doSave);
+
+  $$('#seg button').forEach(b => b.addEventListener('click', () => {
+    setStatus(b.dataset.v); touched = true; sync();
+  }));
+
+  $('#allBtn').addEventListener('click', () => {
+    checked = new Set(lab.rubric.map(r => r.id));
+    manual = null; $('#manualWrap').hidden = true; touched = true;
+    renderRubric(); sync();
+  });
+
+  $('#manualBtn').addEventListener('click', () => {
+    const w = $('#manualWrap');
+    w.hidden = !w.hidden;
+    if (!w.hidden) w.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  $('#reason').addEventListener('input', sync);
+
+  const [labs, sections] = await Promise.all([Api.labs(), Api.sections()]);
+  lab = labs.find(l => l.id === Flow.labId);
+  section = sections.find(s => s.id === Flow.sectionId);
+  if (!lab || !section) { location.replace('sections.html'); return; }
+
+  student = await Api.studentState({ studentId: Flow.studentId, labId: lab.id, taId: me.id });
+  if (!student) { location.replace(Flow.url('students.html')); return; }
+
+  roster = await Api.roster({ sectionId: section.id, labId: lab.id, taId: me.id });
+  const mine = roster.filter(s => s.mine);
+  $('#counter').textContent = `${mine.filter(s => s.entry).length}/${mine.length}`;
+
+  $('#hTitle').textContent = `${labName(lab.id)} · ${t('noun.grade')}`;
+  $('#hSub').textContent   = `${section.name} · ${section.day} ${section.time}`;
+
+  renderPad();
+  fill();
+  $('#form').hidden = false;
+}
+
+/* ---------------- populate from the student's current state ---------------- */
+
+function fill() {
+  const s = student;
+  const outside = s.sectionId !== section.id;
+
+  $('#stName').textContent = s.name;
+  $('#stId').textContent   = s.id;
+  $('#stSec').textContent  = outside
+    ? t('grd.outsideSec', { name: s.section.name })
+    : section.name;
+
+  const flag = $('#flag');
+  const takenByOther = !!(s.entry && !s.entry.byMe);
+
+  if (s.pending && !isMain) {
+    flag.className = 'banner banner--warn';
+    flag.textContent = t('grd.pendingFlag', { ta: s.pending.taName });
+    flag.hidden = false;
+  } else if (takenByOther) {
+    flag.className = isMain ? 'banner banner--info' : 'banner banner--bad';
+    flag.textContent = isMain
+      ? t('grd.takenMain', { g: s.entry.grade, max: lab.max, ta: s.entry.taName })
+      : t('grd.takenTa',   { g: s.entry.grade, max: lab.max, ta: s.entry.taName });
+    flag.hidden = false;
+  } else if (s.entry) {
+    flag.className = 'banner banner--warn';
+    flag.textContent = t('grd.alreadyMine', {
+      g: s.entry.grade, max: lab.max, when: fmtWhen(s.entry.at)
+    });
+    flag.hidden = false;
+  } else {
+    flag.hidden = true;
+  }
+
+  const need = takenByOther || lab.state === 'closed';
+  $('#reasonWrap').hidden = !need;
+  if (need) {
+    const kind = takenByOther ? (isMain ? 'main' : 'request') : 'closed';
+    $('#reasonLabel').textContent = kind === 'request' ? t('grd.reasonReq') : t('grd.reasonEdit');
+    renderReasonChips(kind);
+  }
+
+  if (s.entry) {
+    touched = true;
+    if (Array.isArray(s.entry.items) && s.entry.items.length) {
+      checked = new Set(s.entry.items);
+    } else if (s.entry.grade > 0) {
+      manual = s.entry.grade;
+      $('#manualWrap').hidden = false;
+    }
+    setStatus(s.entry.status);
+  } else {
+    setStatus('present');
+  }
+
+  sync();
+}
+
+function renderReasonChips(kind) {
+  $('#reasonChips').innerHTML = REASONS[kind].map(([labelKey, textKey]) =>
+    `<button class="chip" type="button" data-t="${esc(t(textKey))}">${esc(t(labelKey))}</button>`).join('');
+
+  $$('#reasonChips .chip').forEach(c => c.addEventListener('click', () => {
+    $('#reason').value = c.dataset.t;
+    $$('#reasonChips .chip').forEach(x => x.setAttribute('aria-pressed', x === c));
+    sync();
+  }));
+}
+
+function renderRubric() {
+  const box = $('#rubric');
+  const absent = status === 'absent';
+
+  box.innerHTML = lab.rubric.map(r => `
+    <label class="crit${checked.has(r.id) ? ' crit--on' : ''}${absent ? ' crit--off' : ''}" data-r="${esc(r.id)}">
+      <input type="checkbox" ${checked.has(r.id) ? 'checked' : ''} ${absent ? 'disabled' : ''}>
+      <span class="crit__box" aria-hidden="true"></span>
+      <span class="crit__label">${esc(r.text)}</span>
+      <span class="crit__pts">${r.points}</span>
+    </label>`).join('');
+
+  $$('.crit', box).forEach(el => el.querySelector('input').addEventListener('change', e => {
+    if (e.target.checked) checked.add(el.dataset.r); else checked.delete(el.dataset.r);
+    el.classList.toggle('crit--on', e.target.checked);
+    manual = null;
+    $('#manualWrap').hidden = true;
+    touched = true;
+    sync();
+  }));
+}
+
+function renderPad() {
+  $('#pad').innerHTML = Array.from({ length: lab.max + 1 }, (_, i) =>
+    `<button type="button" data-g="${i}" aria-pressed="false">${i}</button>`).join('');
+
+  $$('#pad button').forEach(b => b.addEventListener('click', () => {
+    manual = +b.dataset.g; touched = true; sync();
+  }));
+}
+
+function setStatus(v) {
+  status = v;
+  $$('#seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+
+  const absent = v === 'absent';
+  ['#allBtn', '#manualBtn'].forEach(sel => $(sel).disabled = absent);
+  $$('#pad button').forEach(b => b.disabled = absent);
+  if (absent) { manual = null; $('#manualWrap').hidden = true; }
+
+  renderRubric();
+  sync();
+}
+
+function gradeNow() {
+  if (status === 'absent') return 0;
+  if (manual !== null) return manual;
+  return lab.rubric.reduce((a, r) => a + (checked.has(r.id) ? r.points : 0), 0);
+}
+
+const otherTa     = () => !!(student && student.entry && !student.entry.byMe);
+const isRequest   = () => otherTa() && !isMain;
+const reasonOk    = () => $('#reason').value.trim().length >= 5;
+const needReason  = () => otherTa() || lab.state === 'closed';
+const nextStudent = () => roster.find(s => !s.entry && s.id !== student.id && (isMain || s.mine)) || null;
+
+function sync() {
+  const g = gradeNow();
+  const badge = $('#scoreBadge');
+  badge.textContent = `${g}/${lab.max}`;
+  badge.classList.toggle('scorebadge--manual', manual !== null && status !== 'absent');
+  $$('#pad button').forEach(b => b.setAttribute('aria-pressed', manual !== null && +b.dataset.g === manual));
+
+  const blocked = !!(student && student.pending) && !isMain;
+  const missing = needReason() && !reasonOk();
+  const ready   = !blocked && !missing && (status === 'absent' || touched);
+
+  const btn = $('#next');
+  btn.disabled = !ready;
+  btn.textContent = blocked      ? t('req.blocked')
+                  : missing      ? t('grd.needReason')
+                  : isRequest()  ? t('req.submit')
+                  : nextStudent()? t('grd.saveNext')
+                  : t('act.save');
+}
+
+async function doSave() {
+  const btn = $('#next');
+  btn.disabled = true;
+
+  const asRequest = isRequest();
+  btn.textContent = asRequest ? t('req.sending') : t('act.saving');
+
+  const payload = {
+    sectionId: student.sectionId,
+    labId: lab.id,
+    studentId: student.id,
+    status,
+    grade: gradeNow(),
+    items: [...checked],
+    reason: $('#reason').value,
+    taId: me.id
+  };
+
+  const res = asRequest ? await Api.requestChange(payload) : await Api.saveMark(payload);
+  if (!res.ok) { toast(res.error, 'bad'); sync(); return; }
+
+  if (asRequest) {
+    toast(t('req.sent', { name: student.name }));
+    setTimeout(() => Flow.go('students.html'), 900);
+    return;
+  }
+
+  const nx = nextStudent();
+  toast(`${student.name} — ${res.entry.grade}/${lab.max}`);
+  setTimeout(() => {
+    if (nx) Flow.go('grade.html', { student: nx.id });
+    else Flow.go('students.html');
+  }, 650);
+}
+</script>
+
+</body>
+</html>

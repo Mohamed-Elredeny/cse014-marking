@@ -1,0 +1,4 @@
+config.php
+db/php-errors.log
+db/backups/
+data/
